@@ -1,0 +1,119 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hbn-eeg-analysis"
+version = "0.1.0"
+description = "Advanced analysis project for HBN-EEG database - experimental upgrade"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "HBN-EEG Analysis Contributors"},
+]
+maintainers = [
+    {name = "HBN-EEG Analysis Contributors"},
+]
+keywords = ["eeg", "neuroscience", "brain", "data-analysis", "mne", "bids", "analysis"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
+requires-python = ">=3.8"
+dependencies = [
+    # Core EEG processing
+    "mne>=1.5.0",
+    "mne-bids>=0.14",
+    # Data handling and analysis
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.7.0",
+    # Configuration and validation
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+    # AWS and cloud access
+    "boto3>=1.28.0",
+    # HED support
+    "hedtools>=0.4.0",
+    # Additional utilities
+    "tqdm>=4.65.0",
+    "scipy>=1.11.0",
+    "seaborn>=0.13.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.25.0",
+    "black>=23.0.0",
+]
+advanced = [
+    "braindecode>=0.8.0",
+]
+all = [
+    "hbn-eeg-analysis[dev,advanced]",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-username/HBN_EEG_Analysis"
+Documentation = "https://github.com/your-username/HBN_EEG_Analysis/docs"
+Repository = "https://github.com/your-username/HBN_EEG_Analysis"
+"Bug Tracker" = "https://github.com/your-username/HBN_EEG_Analysis/issues"
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "."
+
+[tool.setuptools.package-data]
+"*" = ["*.json", "*.yaml", "*.yml", "*.toml"]
+
+# Ruff configuration for linting
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]
+
+# MyPy configuration
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+# Pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"

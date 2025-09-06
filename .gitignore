@@ -1,0 +1,135 @@
+# Data files - exclude entire data directory
+data/
+database/
+legacy/
+docs/
+bordel/
+.ruff_cache/
+# Documentation files - exclude all markdown files
+# *.md
+
+# Claude and context folders
+
+context/    
+PRPs/
+.claude/
+context/examples/loader.py
+CLAUDE.md
+INITIAL.md
+PLANNING.md
+TASK.md
+
+# Python cache files
+__pycache__/
+*Zone.Identifier
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+venv_*/
+env/
+ENV/
+.venv/
+.ENV/
+
+# Jupyter Notebook cache and checkpoints
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# pytest cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# mypy cache
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows Zone.Identifier files (security metadata)
+*Zone.Identifier
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Machine learning model files (if any)
+*.pkl
+*.joblib
+*.h5
+*.hdf5
+*.model
+*.pth
+
+# Large data files that might be generated
+*.npy
+*.npz
+*.csv
+*.tsv
+*.json
+*.xlsx
+*.xls
+*.parquet
+
+# Image outputs (keeping code-generated plots out of repo)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.svg
+
+# Audio/Video files
+*.mp3
+*.mp4
+*.wav
+*.avi
+*.mov
+
+# Compressed files
+*.zip
+*.tar.gz
+*.rar
+*.7z
