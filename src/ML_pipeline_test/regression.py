@@ -1,5 +1,6 @@
 """Downstream regression for response time prediction"""
 import argparse
+from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -17,38 +18,100 @@ Based on classification.py but adapted for regression tasks:
 2. Uses MAE, RMSE, R² metrics instead of accuracy
 3. Outputs single continuous value instead of class probabilities
 4. Model architecture adapted for regression output
+
+Supports two encoder types:
+- 'autoencoder': Original masked autoencoder pretraining
+- 'crl': Contrastive Representation Learning pretraining
 """
 
-def load_pretrained_encoder(autoencoder_class=CNN1DAutoencoder):
-    """Load pretrained encoder from autoencoder"""
-    try:
-        checkpoint = torch.load(config.AUTOENCODER_PATH, map_location=config.DEVICE)
-        autoencoder = autoencoder_class()
-        autoencoder.load_state_dict(checkpoint['model_state_dict'])
-        print(f"Loaded pretrained autoencoder from epoch {checkpoint['epoch']}")
-        return autoencoder.encoder
-    except FileNotFoundError:
-        print("Warning: No pretrained model found. Using random initialization.")
-        return None
+
+def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DAutoencoder):
+    """
+    Load pretrained encoder (either autoencoder or CRL).
+
+    Args:
+        encoder_type: Type of encoder ('autoencoder' or 'crl')
+        autoencoder_class: Autoencoder class (only used if encoder_type='autoencoder')
+
+    Returns:
+        encoder: Pretrained encoder module or None if loading fails
+    """
+    if encoder_type == 'autoencoder':
+        # Load masked autoencoder encoder
+        try:
+            checkpoint = torch.load(config.AUTOENCODER_PATH, map_location=config.DEVICE, weights_only=False)
+            autoencoder = autoencoder_class()
+            autoencoder.load_state_dict(checkpoint['model_state_dict'])
+            print(f"✓ Loaded pretrained autoencoder from epoch {checkpoint['epoch']}")
+            return autoencoder.encoder
+        except FileNotFoundError:
+            print("⚠ Warning: No pretrained autoencoder found. Using random initialization.")
+            return None
+
+    elif encoder_type == 'crl':
+        # Load CRL encoder
+        try:
+            from .contrastive_learning import EEGContrastiveModel
+
+            # Try to find CRL checkpoint
+            crl_checkpoint_path = config.MODEL_DIR / "crl_encoder_best.pth"
+            if not crl_checkpoint_path.exists():
+                # Fallback to last checkpoint
+                crl_checkpoint_path = config.MODEL_DIR / "crl_encoder_last.pth"
+
+            if not crl_checkpoint_path.exists():
+                raise FileNotFoundError(f"No CRL checkpoint found at {config.MODEL_DIR}")
+
+            checkpoint = torch.load(crl_checkpoint_path, map_location=config.DEVICE, weights_only=False)
+
+            # Create full CRL model
+            crl_config = checkpoint.get('config', {})
+            model = EEGContrastiveModel(
+                in_channels=crl_config.get('n_chans', 129),
+                n_samples=crl_config.get('samplepoints', 200),
+                output_dim=crl_config.get('projector_output_dim', 128)
+            )
+            model.load_state_dict(checkpoint['model_state_dict'])
+
+            print(f"✓ Loaded CRL encoder from epoch {checkpoint['epoch']}")
+            print(f"  Checkpoint: {crl_checkpoint_path.name}")
+            if 'val_loss' in checkpoint:
+                print(f"  Val loss: {checkpoint['val_loss']:.4f}")
+
+            # Return encoder only (discard projector)
+            return model.get_encoder()
+
+        except FileNotFoundError as e:
+            print(f"⚠ Warning: {e}")
+            print("  Run CRL pretraining first: python crl_pretraining.py")
+            print("  Using random initialization.")
+            return None
+        except ImportError as e:
+            print(f"⚠ Warning: Could not import CRL module: {e}")
+            print("  Using random initialization.")
+            return None
+
+    else:
+        raise ValueError(f"Unknown encoder_type: {encoder_type}. Choose 'autoencoder' or 'crl'.")
 
 
 class RegressionHead(nn.Module):
-    """Regression head for continuous value prediction"""
+    """Regression head for autoencoder-based continuous value prediction"""
     def __init__(self, encoder=None, freeze_encoder=True, dropout=config.CLS_DROPOUT):
         super().__init__()
         self.encoder = encoder
         self.freeze_encoder = freeze_encoder
-        
+
         if encoder is not None and freeze_encoder:
             for param in encoder.parameters():
                 param.requires_grad = False
-        
+
         # Feature extraction (same as BinaryClassifier)
         self.feature_extractor = nn.Sequential(
             nn.AdaptiveAvgPool1d(1),  # Global average pooling
             nn.Flatten()
         )
-        
+
         # Regression head (similar to BinaryClassifier but with 1 output)
         self.regressor = nn.Sequential(
             nn.Dropout(dropout),
@@ -57,15 +120,39 @@ class RegressionHead(nn.Module):
             nn.Dropout(dropout),
             nn.Linear(32, 1)  # Single output for regression
         )
-        
+
     def forward(self, x):
         if self.encoder is not None:
-            features = self.encoder(x) # Extract features 
+            features = self.encoder(x) # Extract features
         else:
             features = x
         # Apply feature extraction (pooling + flattening) then Regress to single value
         features = self.feature_extractor(features)
         return self.regressor(features).squeeze(-1)  # Remove last dimension
+
+
+class CRLRegressionHead(nn.Module):
+    """Regression head for CRL encoder (uses bi-LSTM Projector in regression mode)"""
+    def __init__(self, encoder, freeze_encoder=True, dropout=config.CLS_DROPOUT):
+        super().__init__()
+        self.encoder = encoder
+
+        if freeze_encoder:
+            for param in encoder.parameters():
+                param.requires_grad = False
+
+        # Import Projector and use it in regression mode
+        from .contrastive_learning.models import Projector
+        self.projector = Projector(
+            input_dim=4,  # CRL encoder outputs 4 channels
+            output_dim=1,  # Scalar output for regression
+            task_mode='regression'
+        )
+
+    def forward(self, x):
+        features = self.encoder(x)  # (batch, 4, time_reduced)
+        output = self.projector(features)  # (batch,) - squeeze done in Projector
+        return output
 
 
 def regression_train_epoch(model, train_loader, optimizer, criterion, epoch, epochs_n=config.CLS_EPOCHS):
@@ -147,32 +234,55 @@ def validate_regression(model, val_loader, criterion, verbose=config.VERBOSE):
     return total_loss / max(batch_count, 1), val_mae, val_rmse, val_r2
 
 
-def train_regressor(autoencoder_class=CNN1DAutoencoder,
+def train_regressor(encoder_type='autoencoder',
+                   autoencoder_class=CNN1DAutoencoder,
                    target_column=None,
                    dataset_type='regression',
-                   epochs=config.CLS_EPOCHS, 
+                   epochs=config.CLS_EPOCHS,
                    batch_size=config.CLS_BATCH_SIZE,
                    freeze_encoder=True):
-    """Main training function for regressor"""
+    """
+    Main training function for regressor.
+
+    Args:
+        encoder_type: Type of pretrained encoder ('autoencoder' or 'crl')
+        autoencoder_class: Autoencoder class (only used if encoder_type='autoencoder')
+        target_column: Target column to predict
+        dataset_type: Dataset type ('regression')
+        epochs: Number of training epochs
+        batch_size: Batch size
+        freeze_encoder: Whether to freeze encoder weights
+
+    Returns:
+        model: Trained regression model
+        metrics: Training metrics (losses, MAEs, RMSEs, R²s)
+    """
     print("=" * 50)
     print("Starting Regression Training")
+    print(f"  Encoder type: {encoder_type}")
     print("=" * 50)
-    
+
     # Set config for regression task
     config.TASK_TYPE = 'regression'  # Ensure regression mode
     if target_column is not None:
         config.TARGET_COLUMN = target_column
     config.TARGET_EVENTS = None  # Use all data for regression
-    
+
     # Create dataloaders
     train_loader, val_loader = create_dataloaders(
         dataset_type=dataset_type, batch_size=batch_size)
-    
+
     # Load pretrained encoder
-    encoder = load_pretrained_encoder(autoencoder_class=autoencoder_class)
-    
-    # Initialize model
-    model = RegressionHead(encoder=encoder, freeze_encoder=freeze_encoder).to(config.DEVICE)
+    encoder = load_pretrained_encoder(
+        encoder_type=encoder_type,
+        autoencoder_class=autoencoder_class
+    )
+
+    # Initialize model based on encoder type
+    if encoder_type == 'crl':
+        model = CRLRegressionHead(encoder=encoder, freeze_encoder=freeze_encoder).to(config.DEVICE)
+    else:
+        model = RegressionHead(encoder=encoder, freeze_encoder=freeze_encoder).to(config.DEVICE)
     
     # Count trainable parameters
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -220,7 +330,9 @@ def train_regressor(autoencoder_class=CNN1DAutoencoder,
         # Save best model (based on MAE)
         if val_mae < best_val_mae:
             best_val_mae = val_mae
-            model_name = f"regressor_{target_column}_best.pth" if target_column else "regressor_best.pth"
+            # Include encoder type in filename
+            encoder_suffix = f"_{encoder_type}" if encoder_type != 'autoencoder' else ""
+            model_name = f"regressor_{target_column}{encoder_suffix}_best.pth" if target_column else f"regressor{encoder_suffix}_best.pth"
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -230,18 +342,20 @@ def train_regressor(autoencoder_class=CNN1DAutoencoder,
                 'train_mae': train_mae,
                 'val_mae': val_mae,
                 'val_r2': val_r2,
+                'encoder_type': encoder_type,
             }, config.MODEL_DIR / model_name)
             print(f"Saved best model with val_mae: {val_mae:.3f}")
     
     print("\n" + "=" * 50)
     print("Training Complete!")
     print(f"Best validation MAE: {best_val_mae:.3f}")
-    model_name = f"regressor_{target_column}_best.pth" if target_column else "regressor_best.pth"
+    encoder_suffix = f"_{encoder_type}" if encoder_type != 'autoencoder' else ""
+    model_name = f"regressor_{target_column}{encoder_suffix}_best.pth" if target_column else f"regressor{encoder_suffix}_best.pth"
     print(f"Model saved to: {config.MODEL_DIR / model_name}")
     
     # Load and validate best model
     print("\nFinal validation with best model:")
-    model.load_state_dict(torch.load(config.MODEL_DIR / model_name)['model_state_dict'])
+    model.load_state_dict(torch.load(config.MODEL_DIR / model_name, weights_only=False)['model_state_dict'])
     validate_regression(model, val_loader, criterion, verbose=True)
     print("=" * 50)
     
@@ -249,7 +363,24 @@ def train_regressor(autoencoder_class=CNN1DAutoencoder,
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Train regressor')
+    parser = argparse.ArgumentParser(
+        description='Train regressor with pretrained encoder',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Train with autoencoder (default)
+  python regression.py --target response_time
+
+  # Train with CRL encoder
+  python regression.py --encoder_type crl --target response_time
+
+  # Fine-tune encoder
+  python regression.py --encoder_type crl --target response_time --unfreeze
+        """
+    )
+    parser.add_argument('--encoder_type', type=str, default='autoencoder',
+                       choices=['autoencoder', 'crl'],
+                       help='Type of pretrained encoder (default: autoencoder)')
     parser.add_argument('--epochs', type=int, default=config.CLS_EPOCHS,
                        help='Number of epochs to train')
     parser.add_argument('--batch-size', type=int, default=config.CLS_BATCH_SIZE,
@@ -259,13 +390,14 @@ def main():
     parser.add_argument('--target', type=str, default=config.TARGET_COLUMN,
                        help='Target column to predict')
     args = parser.parse_args()
-    
+
     torch.manual_seed(config.RANDOM_SEED); np.random.seed(config.RANDOM_SEED)
-    
+
     # Train model
     model, metrics = train_regressor(
-        epochs=args.epochs, 
-        batch_size=args.batch_size, 
+        encoder_type=args.encoder_type,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
         freeze_encoder=not args.unfreeze,
         target_column=args.target)
     

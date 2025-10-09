@@ -70,6 +70,10 @@ MODEL_DIR = ML_DIR / "saved_models"
 AUTOENCODER_PATH = MODEL_DIR / "autoencoder_best.pth"
 CLASSIFIER_PATH = MODEL_DIR / "classifier_best.pth"
 
+# CRL model paths
+CRL_ENCODER_PATH_BEST = MODEL_DIR / "crl_encoder_best.pth"
+CRL_ENCODER_PATH_LAST = MODEL_DIR / "crl_encoder_last.pth"
+
 # Data configuration
 NUM_CHANNELS = 129
 PRETRAINING_SEQ_LEN = 200
@@ -115,3 +119,14 @@ SAVE_INTERVAL = 10
 
 # Create directories if they don't exist
 os.makedirs(MODEL_DIR, exist_ok=True)
+
+# =========================== CRL Configuration ===========================
+# For detailed CRL configuration, see:
+# src/ML_pipeline_test/contrastive_learning/config.py
+#
+# Quick reference:
+# - CRL uses multi-task pretraining (6 HBN tasks)
+# - Data: 129 channels, 100Hz, 2s windows (200 samples)
+# - Training: batch=256, epochs=200, temperature=0.1
+# - To use CRL encoder in downstream tasks:
+#     python regression.py --encoder_type crl --target response_time
