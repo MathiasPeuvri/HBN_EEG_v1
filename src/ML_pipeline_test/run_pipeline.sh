@@ -55,7 +55,7 @@ python -m src.ML_pipeline_test.regression --encoder_type $ENCODER_TYPE --epochs 
 # echo -e "\n5. Evaluating models..." # Need to rework the evaluation stuff
 # first create the adapted evaluation dataset created using independant release of the database 
 python -m src.ML_pipeline_test.evaluation.evaluation --create-datasets
-python -m src.ML_pipeline_test.evaluation.evaluation --output-dir /home/mts/HBN_EEG_Analysis/src/ML_pipeline_test/saved_models
+python -m src.ML_pipeline_test.evaluation.evaluation --output-dir /home/mts/HBN_EEG_v1/src/ML_pipeline_test/saved_models
 
 echo -e "\n========================================="
 echo "Pipeline Complete!"

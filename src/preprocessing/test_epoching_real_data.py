@@ -9,7 +9,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-sys.path.insert(0, '/home/mts/HBN_EEG_Analysis')
+sys.path.insert(0, '/home/mts/HBN_EEG_v1')
 
 # Import our epoching function
 from src.preprocessing.epoching import segment_continuous_numpy

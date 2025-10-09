@@ -10,7 +10,7 @@ import torch
 VERBOSE = False
 
 # Project paths
-PROJECT_ROOT = Path("/home/mts/HBN_EEG_Analysis")
+PROJECT_ROOT = Path("/home/mts/HBN_EEG_v1")
 ML_DIR = PROJECT_ROOT / "src" / "ML_pipeline_test"
 DATA_DIR = PROJECT_ROOT / "datasets"
 

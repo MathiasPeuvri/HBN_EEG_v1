@@ -27,7 +27,7 @@ import warnings
 mne.set_log_level('ERROR')
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-sys.path.insert(0, '/home/mts/HBN_EEG_Analysis')
+sys.path.insert(0, '/home/mts/HBN_EEG_v1')
 from src.preprocessing.epoching import segment_continuous_numpy
 from src.preprocessing.filters import preprocess_data
 from src.loader.simple_loader import SimpleConfig, SimpleHBNLoader
@@ -46,8 +46,8 @@ DEFAULT_TASKS = [
 
 def create_crl_pretraining_shards(
     dataset_name: str = "R1_L100",
-    database_root: Path = Path("/home/mts/HBN_EEG_Analysis/database/"),
-    savepath_root: Path = Path("/home/mts/HBN_EEG_Analysis/datasets/"),
+    database_root: Path = Path("/home/mts/HBN_EEG_v1/database/"),
+    savepath_root: Path = Path("/home/mts/HBN_EEG_v1/datasets/"),
     subjects: Optional[List[str]] = None,
     nb_subjects_per_shard: int = 10,
     tasks: List[str] = None,
@@ -250,13 +250,13 @@ Examples:
     parser.add_argument(
         "--database-root",
         type=Path,
-        default=Path("/home/mts/HBN_EEG_Analysis/database/"),
+        default=Path("/home/mts/HBN_EEG_v1/database/"),
         help="Database root path"
     )
     parser.add_argument(
         "--savepath-root",
         type=Path,
-        default=Path("/home/mts/HBN_EEG_Analysis/datasets/"),
+        default=Path("/home/mts/HBN_EEG_v1/datasets/"),
         help="Output directory for shards"
     )
     parser.add_argument(

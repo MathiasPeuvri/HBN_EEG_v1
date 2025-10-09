@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-sys.path.insert(0, '/home/mts/HBN_EEG_Analysis')
+sys.path.insert(0, '/home/mts/HBN_EEG_v1')
 # Import our filtering functions FIRST (while we're in the right directory)
 from src.preprocessing.filters import (
     apply_notch_filter, apply_bandpass_filter, apply_average_reference,

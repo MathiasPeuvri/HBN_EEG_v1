@@ -8,7 +8,7 @@ import warnings
 mne.set_log_level('ERROR')
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
-sys.path.insert(0, '/home/mts/HBN_EEG_Analysis')
+sys.path.insert(0, '/home/mts/HBN_EEG_v1')
 from src.preprocessing.epoching import segment_continuous_numpy, segment_by_events_numpy
 # from src.loader import SimpleHBNLoader
 # from src.loader.config import DatabaseLoaderConfig
@@ -34,7 +34,7 @@ VERBOSE = True
 
 # config = DatabaseLoaderConfig(data_root=Path("/home/mts/EFG2025_HBN-EEG_databse/data"))
 # loader = SimpleHBNLoader(config)
-config = SimpleConfig(data_root=Path("/home/mts/HBN_EEG_Analysis/database/"))
+config = SimpleConfig(data_root=Path("/home/mts/HBN_EEG_v1/database/"))
 loader = SimpleHBNLoader(config)
 all_subjects = loader.get_available_subjects()
 SUBJECTS = all_subjects[:80] # test with 25 subjects at a time for a 'shard' ? // pkl quasi 2 go et ram quasi saturée ... 
@@ -84,7 +84,7 @@ for i, SUBJECT in enumerate(SUBJECTS):
     # Save shard every 5 subjects
     if (i + 1) % nb_suj_per_shard == 0:
         temp_df = pd.DataFrame(pretraining_data)
-        with open(f'/home/mts/HBN_EEG_Analysis/datasets/pretraining_data_shard_{shard_subjects_counter}.pkl', 'wb') as f:
+        with open(f'/home/mts/HBN_EEG_v1/datasets/pretraining_data_shard_{shard_subjects_counter}.pkl', 'wb') as f:
             pickle.dump(temp_df, f)
         print(f"Saved shard {shard_subjects_counter} with {len(temp_df)} epochs")
         shard_subjects_counter += 1
@@ -93,7 +93,7 @@ for i, SUBJECT in enumerate(SUBJECTS):
 # Save remaining data if any
 if pretraining_data:
     temp_df = pd.DataFrame(pretraining_data)
-    with open(f'/home/mts/HBN_EEG_Analysis/datasets/pretraining_data_shard_{shard_subjects_counter}.pkl', 'wb') as f:
+    with open(f'/home/mts/HBN_EEG_v1/datasets/pretraining_data_shard_{shard_subjects_counter}.pkl', 'wb') as f:
         pickle.dump(temp_df, f)
     print(f"Saved final shard {shard_subjects_counter} with {len(temp_df)} epochs")
 
@@ -298,12 +298,12 @@ print(challenge_1_data.head())
 #========================================================
 # save the data
 #========================================================
-with open('/home/mts/HBN_EEG_Analysis/datasets/pretraining_data.pkl', 'wb') as f:
+with open('/home/mts/HBN_EEG_v1/datasets/pretraining_data.pkl', 'wb') as f:
         pickle.dump(pretraining_data, f)
 
-with open('/home/mts/HBN_EEG_Analysis/datasets/posttraining_data.pkl', 'wb') as f:
+with open('/home/mts/HBN_EEG_v1/datasets/posttraining_data.pkl', 'wb') as f:
     pickle.dump(posttraining_data, f)
 
 # Save corrected data
-with open('/home/mts/HBN_EEG_Analysis/datasets/challenge_1_data.pkl', 'wb') as f:
+with open('/home/mts/HBN_EEG_v1/datasets/challenge_1_data.pkl', 'wb') as f:
     pickle.dump(challenge_1_data, f)

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, '/home/mts/HBN_EEG_Analysis')
+sys.path.insert(0, '/home/mts/HBN_EEG_v1')
 
 # Import our epoching functions
 from src.preprocessing.epoching import segment_by_events_mne, segment_by_events_numpy
@@ -230,7 +230,7 @@ def create_visualization(raw, mne_epochs_dict, numpy_epochs_dict, event_info, ch
     plt.tight_layout()
     
     # Save plot
-    plt.savefig('/home/mts/HBN_EEG_Analysis/event_epoching_test.png', 
+    plt.savefig('/home/mts/HBN_EEG_v1/event_epoching_test.png', 
                 dpi=150, bbox_inches='tight')
     print("Visualization saved as 'event_epoching_test.png'")
     plt.close()

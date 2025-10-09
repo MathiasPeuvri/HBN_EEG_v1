@@ -9,7 +9,7 @@ import warnings
 mne.set_log_level('ERROR')
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
-sys.path.insert(0, '/home/mts/HBN_EEG_Analysis')
+sys.path.insert(0, '/home/mts/HBN_EEG_v1')
 from src.preprocessing.epoching import segment_by_events_numpy
 from src.preprocessing.filters import preprocess_data
 from src.loader.simple_loader import SimpleConfig, SimpleHBNLoader
@@ -87,8 +87,8 @@ def process_events_by_type(raw, events_df, verbose=False):
 
 def create_posttraining_shards(
     dataset_name: str = "R1_L100",
-    database_root: Path = Path("/home/mts/HBN_EEG_Analysis/database/"),
-    savepath_root: Path = Path("/home/mts/HBN_EEG_Analysis/datasets/"),
+    database_root: Path = Path("/home/mts/HBN_EEG_v1/database/"),
+    savepath_root: Path = Path("/home/mts/HBN_EEG_v1/datasets/"),
     subjects: Optional[List[str]] = None,
     nb_subjects_per_shard: int = 25,
     task_name: str = "contrastChangeDetection",
@@ -224,8 +224,8 @@ def create_posttraining_shards(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create posttraining data shards from EEG database")
     parser.add_argument("--dataset-name", default="R1_L100", help="Dataset name")
-    parser.add_argument("--database-root", type=Path, default=Path("/home/mts/HBN_EEG_Analysis/database/"), help="Database root path")
-    parser.add_argument("--savepath-root", type=Path, default=Path("/home/mts/HBN_EEG_Analysis/datasets/"), help="Output directory for shards")
+    parser.add_argument("--database-root", type=Path, default=Path("/home/mts/HBN_EEG_v1/database/"), help="Database root path")
+    parser.add_argument("--savepath-root", type=Path, default=Path("/home/mts/HBN_EEG_v1/datasets/"), help="Output directory for shards")
     parser.add_argument("--subjects-per-shard", type=int, default=25, help="Number of subjects per shard")
     parser.add_argument("--task-name", default="contrastChangeDetection", help="Task name to process")
     parser.add_argument("--runs", nargs="+", type=int, default=[1, 2, 3], help="Run numbers to process")

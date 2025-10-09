@@ -32,7 +32,7 @@ def create_evaluation_datasets(subjects_limit: Optional[int] = None, verbose: bo
         Dict[str, List[Path]]: Dictionary mapping dataset type to created file paths
     """
     # Configure paths for evaluation
-    base_path = Path("/home/mts/HBN_EEG_Analysis")
+    base_path = Path("/home/mts/HBN_EEG_v1")
     db_root = base_path / "database"
     output_dir = base_path / "datasets" / "evaluation_datasets"
     
@@ -172,7 +172,7 @@ def verify_evaluation_datasets(output_dir: Optional[Path] = None, verbose: bool 
         bool: True if datasets exist and are valid
     """
     if output_dir is None:
-        output_dir = Path("/home/mts/HBN_EEG_Analysis/datasets/evaluation_datasets")
+        output_dir = Path("/home/mts/HBN_EEG_v1/datasets/evaluation_datasets")
         
     created_files = find_created_datasets(output_dir)
     
