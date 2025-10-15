@@ -13,6 +13,7 @@ from .datasets_loader_classes.shard_pretraining_dataset import SequentialShardDa
 from .datasets_loader_classes.downstream_dataset import DownstreamTaskDataset
 from .datasets_loader_classes.shard_downstream_dataset import SequentialShardDownstreamDataset
 
+NUM_WORKERS = 0
 
 def create_dataloaders(dataset_type: str = 'pretraining', 
                        batch_size: Optional[int] = None,
@@ -54,13 +55,13 @@ def create_dataloaders(dataset_type: str = 'pretraining',
             train_loader = DataLoader(
                 train_dataset,
                 batch_size=batch_size,
-                num_workers=0,  
+                num_workers=NUM_WORKERS,  
                 pin_memory=config.DEVICE.type == 'cuda'
             )
             val_loader = DataLoader(
                 val_dataset,
                 batch_size=batch_size,
-                num_workers=0,
+                num_workers=NUM_WORKERS,
                 pin_memory=config.DEVICE.type == 'cuda'
             )
             
@@ -104,13 +105,13 @@ def create_dataloaders(dataset_type: str = 'pretraining',
             train_loader = DataLoader(
                 train_dataset,
                 batch_size=batch_size,
-                num_workers=0,  # Start with 0, can optimize later
+                num_workers=NUM_WORKERS,  # Start with 0, can optimize later
                 pin_memory=config.DEVICE.type == 'cuda'
             )
             val_loader = DataLoader(
                 val_dataset,
                 batch_size=batch_size,
-                num_workers=0,
+                num_workers=NUM_WORKERS,
                 pin_memory=config.DEVICE.type == 'cuda'
             )
             
@@ -154,13 +155,13 @@ def create_dataloaders(dataset_type: str = 'pretraining',
             train_loader = DataLoader(
                 train_dataset,
                 batch_size=batch_size,
-                num_workers=0, 
+                num_workers=NUM_WORKERS, 
                 pin_memory=config.DEVICE.type == 'cuda'
             )
             val_loader = DataLoader(
                 val_dataset,
                 batch_size=batch_size,
-                num_workers=0,
+                num_workers=NUM_WORKERS,
                 pin_memory=config.DEVICE.type == 'cuda'
             )
             
@@ -194,7 +195,7 @@ def create_dataloaders(dataset_type: str = 'pretraining',
         train_dataset, 
         batch_size=batch_size,
         shuffle=True,
-        num_workers=0,
+        num_workers=NUM_WORKERS,
         pin_memory=True if config.DEVICE.type == 'cuda' else False
     )
     
@@ -202,7 +203,7 @@ def create_dataloaders(dataset_type: str = 'pretraining',
         val_dataset, 
         batch_size=batch_size,
         shuffle=False,
-        num_workers=0,
+        num_workers=NUM_WORKERS,
         pin_memory=True if config.DEVICE.type == 'cuda' else False
     )
     

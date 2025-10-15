@@ -17,6 +17,9 @@ python -m src.database_to_dataset.database_to_posttraining_shards # not used any
 python -m src.database_to_dataset.database_to_challenge1_shards # specific to challenge 1 response time & classif (all on CDD task)
 
 # ========== PRETRAINING ==========
+# Define data directory for easier pattern construction
+DATA_DIR= "/home/mts/HBN_EEG_v1/datasets"
+
 if [ "$ENCODER_TYPE" = "crl" ]; then
     echo -e "\n1.CRL. Create multi-task CRL pretraining shards (if not already created)"
     # Uncomment to create CRL shards:
@@ -26,9 +29,14 @@ if [ "$ENCODER_TYPE" = "crl" ]; then
 
     echo -e "\n2.CRL. Running CRL pretraining (200 epochs)..."
     python -m src.ML_pipeline_test.crl_pretraining --epochs 200 --batch-size 256
-    # pretraining 1 release 200/300 epochs ?
-    # python -m src.ML_pipeline_test.crl_pretraining --epochs 200 --batch-size 256 --data-pattern ### comment bien injecter le data pattern quand de base c'est default=str(ml_config.DATA_DIR / "crl_pretraining_data_shard_*.pkl") ? 
-    # pretraining multi-release 20/30 epochs ?
+    # Pretraining 1: Multi-release training (200-300 epochs)
+    echo -e "  2.1. Phase 1 - Multi-release pretraining (200 epochs)"
+    python -m src.ML_pipeline_test.crl_pretraining --epochs 200 --batch-size 256 \
+        --data-pattern "${DATA_DIR}/crl_pretraining_data_shard_*.pkl" --save-prefix "crl_encoder_multi_release"
+    # Pretraining 2: Single release (R1) fine-tuning (20-30 epochs)
+    echo -e "  2.2. Phase 2 - R1 fine-tuning (30 epochs)"
+    python -m src.ML_pipeline_test.crl_pretraining --epochs 30 --batch-size 256 \
+        --data-pattern "${DATA_DIR}/crl_pretraining_data_shard_*_R1.pkl" --save-prefix "crl_encoder_one_release"
 else
     echo -e "\n2. Running autoencoder pretraining (100 epochs)..."
     python -m src.ML_pipeline_test.pretraining --epochs 100 --batch-size 32

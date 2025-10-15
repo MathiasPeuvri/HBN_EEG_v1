@@ -294,7 +294,7 @@ print(model)
 # %% [code]
 # Create PyTorch Dataloader
 
-num_workers = 1  # We are using a single worker, but you can increase this for faster data loading
+num_workers = 0  # We are using a single worker, but you can increase this for faster data loading
 dataloader = DataLoader(windows_ds, batch_size=128, shuffle=True, num_workers=num_workers)
 
 n_epochs = 1

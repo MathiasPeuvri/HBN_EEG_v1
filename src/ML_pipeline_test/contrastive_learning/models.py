@@ -41,9 +41,16 @@ class ConvolutionalEncoder(nn.Module):
         # Original paper: 4000 samples with kernels [128, 64, 16]
         # Maintain proportional receptive fields for shorter signals
         scale_factor = n_samples / 4000.0
-        k1 = max(4, int(128 * scale_factor))  # ~6 for 200 samples
+        k1 = max(4, int(128 * scale_factor))  # ~6 for 200 samples 
         k2 = max(4, int(64 * scale_factor))   # ~3 for 200 samples
         k3 = max(2, int(16 * scale_factor))   # ~1 for 200 samples
+        # potentiellement regarder pour permutter x sur une des branches pour faire une conv spatial
+
+        # # proposition maxim # beaucoup d'alpha, correler taille des filtres de conv avec ce qu'on veut voir niveau freq
+        # k1 = max(4, int(128 * scale_factor))  # 20 -> voir l'alpha
+        # k2 = max(4, int(64 * scale_factor))   # 10 -> voir l'alpha
+        # k3 = max(2, int(16 * scale_factor))   # 5 -> voir le delta / mouvement yeux / perturbations etc ...
+        # plutot que couper un branche, duppliquer les branches d'entré pour prendre les sources indépendament
 
         self.k1, self.k2, self.k3 = k1, k2, k3
 
@@ -80,6 +87,9 @@ class ConvolutionalEncoder(nn.Module):
         Returns:
             Encoded features (batch, 4, time_reduced)
         """
+        # potentiellement regarder pour permutter x sur une des branches pour faire une conv spatial -> no padding?
+        # par ici qu'il faut revoir, quand on fait rentrer les donnés
+
         # Apply reflection padding for each branch (maintains temporal dimension)
         pad1_left = self.k1 // 2
         pad1_right = self.k1 - pad1_left - 1

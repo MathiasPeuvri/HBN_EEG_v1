@@ -19,8 +19,7 @@ from tqdm import tqdm
 from .loss import NTXentLoss
 from .config import (
     CRL_CONFIG, EPOCHS, BATCH_SIZE, LEARNING_RATE, WEIGHT_DECAY,
-    WARMUP_EPOCHS, GRAD_CLIP, MIN_LR, CHECKPOINT_DIR
-)
+    WARMUP_EPOCHS, GRAD_CLIP, MIN_LR, CHECKPOINT_DIR, NUM_WORKERS)
 
 
 def pretrain_contrastive(
@@ -104,7 +103,7 @@ def pretrain_contrastive(
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        num_workers=0, 
+        num_workers=NUM_WORKERS, 
         pin_memory=True if device.type == 'cuda' else False
     )
 
@@ -113,7 +112,7 @@ def pretrain_contrastive(
         val_loader = DataLoader(
             val_dataset,
             batch_size=batch_size,
-            num_workers=0,
+            num_workers=NUM_WORKERS,
             pin_memory=True if device.type == 'cuda' else False
         )
 

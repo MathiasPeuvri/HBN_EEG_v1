@@ -35,7 +35,7 @@ def load_real_eeg_data():
     """
     try:
 
-        config = SimpleConfig(data_root=Path("/home/mts/EFG2025_HBN-EEG_databse/data"))
+        config = SimpleConfig(data_root=PROJECT_ROOT / "database")
         loader = SimpleHBNLoader(config)
         
         data = loader.get_data(SUBJECT, TASK)

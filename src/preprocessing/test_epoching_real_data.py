@@ -9,7 +9,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-sys.path.insert(0, '/home/mts/HBN_EEG_v1')
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 # Import our epoching function
 from src.preprocessing.epoching import segment_continuous_numpy
@@ -29,7 +30,7 @@ def load_real_eeg_data():
         mne.io.Raw: Real EEG data or None if failed
     """
     try:
-        config = SimpleConfig(data_root=Path("/home/mts/EFG2025_HBN-EEG_databse/data"))
+        config = SimpleConfig(data_root=PROJECT_ROOT / "database")
         loader = SimpleHBNLoader(config)
         
         data = loader.get_data(SUBJECT, TASK)

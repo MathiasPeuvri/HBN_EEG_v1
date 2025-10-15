@@ -16,6 +16,8 @@ SAMPLEPOINTS = 256
 BATCH_SIZE = 32  # Original paper uses 1000 for convolutional encoder
 # /!\ Temperature must scale with batch size 
 TEMPERATURE = 0.1 # Original paper uses 0.05; the temperature is related to the batch size; with higher batch size, we can decrease the temperature
+
+NUM_WORKERS = 0
 # ================================ Channels augmentation ================================
 
 transformation_ranges_original = {'amplitude_scale' : (0.5,2), 'time_shift_seconds' : (-0.25,0.25), 'DC_shift_µV' : (-10,10), 'zero-masking_seconds' : (0,0.75), 'adaptive_gaussian_noise' : (0.0,0.2), 'band5hz-stop_Hzstart': (2.8,82.5)}
@@ -566,8 +568,8 @@ def pretrain_contrastive(model, train_dataset, val_dataset=None,
     os.makedirs(checkpoint_dir, exist_ok=True)
 
     # Setup data loaders
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0) if val_dataset else None
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=NUM_WORKERS)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=NUM_WORKERS) if val_dataset else None
 
     # Setup loss and optimizer
     criterion = NTXentLoss(temperature=TEMPERATURE)

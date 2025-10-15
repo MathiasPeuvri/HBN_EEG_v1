@@ -64,7 +64,7 @@ PROJECTOR_NUM_LAYERS = 2  # Number of LSTM layers
 PROJECTOR_OUTPUT_DIM = 128  # Final projection dimension for contrastive loss
 
 # ================================ Data Loading ================================
-NUM_WORKERS = 4  # Number of workers for data loading
+NUM_WORKERS = 0  # Number of workers for data loading
 PIN_MEMORY = True  # Pin memory for faster GPU transfer
 
 # ================================ Logging & Checkpointing ================================
