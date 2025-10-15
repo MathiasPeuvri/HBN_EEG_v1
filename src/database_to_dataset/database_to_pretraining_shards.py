@@ -9,8 +9,8 @@ import mne
 import warnings
 mne.set_log_level('ERROR')
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
-
-sys.path.insert(0, '/home/mts/HBN_EEG_v1')
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 from src.preprocessing.epoching import segment_continuous_numpy, segment_by_events_numpy
 # from src.loader import SimpleHBNLoader
 # from src.loader.config import DatabaseLoaderConfig
@@ -27,8 +27,8 @@ from src.loader.simple_loader import SimpleConfig, SimpleHBNLoader
 
 def create_pretraining_shards(
     dataset_name: str = "R1_L100",
-    database_root: Path = Path("/home/mts/HBN_EEG_v1/database/"),
-    savepath_root: Path = Path("/home/mts/HBN_EEG_v1/datasets/"),
+    database_root: Path = PROJECT_ROOT / "database",
+    savepath_root: Path = PROJECT_ROOT / "datasets",
     subjects: Optional[List[str]] = None,
     nb_subjects_per_shard: int = 25,
     task_name: str = "surroundSupp",
@@ -114,8 +114,8 @@ def create_pretraining_shards(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Create pretraining data shards from EEG database")
     parser.add_argument("--dataset-name", default="R1_L100", help="Dataset name")
-    parser.add_argument("--database-root", type=Path, default=Path("/home/mts/HBN_EEG_v1/database/"), help="Database root path")
-    parser.add_argument("--savepath-root", type=Path, default=Path("/home/mts/HBN_EEG_v1/datasets/"), help="Output directory for shards")
+    parser.add_argument("--database-root", type=Path, default=PROJECT_ROOT / "database", help="Database root path")
+    parser.add_argument("--savepath-root", type=Path, default=PROJECT_ROOT / "datasets", help="Output directory for shards")
     parser.add_argument("--subjects-per-shard", type=int, default=25, help="Number of subjects per shard")
     parser.add_argument("--task-name", default="surroundSupp", help="Task name to process")
     parser.add_argument("--runs", nargs="+", type=int, default=[1, 2], help="Run numbers to process")

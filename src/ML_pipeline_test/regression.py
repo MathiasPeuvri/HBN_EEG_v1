@@ -52,13 +52,7 @@ def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DA
         # Load CRL encoder
         try:
             from .contrastive_learning import EEGContrastiveModel
-
-            # Try to find CRL checkpoint
             crl_checkpoint_path = config.MODEL_DIR / "crl_encoder_best.pth"
-            if not crl_checkpoint_path.exists():
-                # Fallback to last checkpoint
-                crl_checkpoint_path = config.MODEL_DIR / "crl_encoder_last.pth"
-
             if not crl_checkpoint_path.exists():
                 raise FileNotFoundError(f"No CRL checkpoint found at {config.MODEL_DIR}")
 
@@ -69,12 +63,10 @@ def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DA
             model = EEGContrastiveModel(
                 in_channels=crl_config.get('n_chans', 129),
                 n_samples=crl_config.get('samplepoints', 200),
-                output_dim=crl_config.get('projector_output_dim', 128)
-            )
+                output_dim=crl_config.get('projector_output_dim', 128))
             model.load_state_dict(checkpoint['model_state_dict'])
 
-            print(f"✓ Loaded CRL encoder from epoch {checkpoint['epoch']}")
-            print(f"  Checkpoint: {crl_checkpoint_path.name}")
+            print(f"Loaded CRL encoder from Checkpoint: {crl_checkpoint_path.name} (epoch {checkpoint['epoch']})")
             if 'val_loss' in checkpoint:
                 print(f"  Val loss: {checkpoint['val_loss']:.4f}")
 
@@ -82,15 +74,11 @@ def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DA
             return model.get_encoder()
 
         except FileNotFoundError as e:
-            print(f"⚠ Warning: {e}")
-            print("  Run CRL pretraining first: python crl_pretraining.py")
-            print("  Using random initialization.")
+            print(f"Warning: {e}")
             return None
         except ImportError as e:
-            print(f"⚠ Warning: Could not import CRL module: {e}")
-            print("  Using random initialization.")
+            print(f"Warning: Could not import CRL module: {e}")
             return None
-
     else:
         raise ValueError(f"Unknown encoder_type: {encoder_type}. Choose 'autoencoder' or 'crl'.")
 
@@ -146,8 +134,7 @@ class CRLRegressionHead(nn.Module):
         self.projector = Projector(
             input_dim=4,  # CRL encoder outputs 4 channels
             output_dim=1,  # Scalar output for regression
-            task_mode='regression'
-        )
+            task_mode='regression')
 
     def forward(self, x):
         features = self.encoder(x)  # (batch, 4, time_reduced)
@@ -273,10 +260,7 @@ def train_regressor(encoder_type='autoencoder',
         dataset_type=dataset_type, batch_size=batch_size)
 
     # Load pretrained encoder
-    encoder = load_pretrained_encoder(
-        encoder_type=encoder_type,
-        autoencoder_class=autoencoder_class
-    )
+    encoder = load_pretrained_encoder(encoder_type=encoder_type, autoencoder_class=autoencoder_class)
 
     # Initialize model based on encoder type
     if encoder_type == 'crl':

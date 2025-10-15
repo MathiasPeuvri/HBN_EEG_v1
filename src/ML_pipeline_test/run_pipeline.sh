@@ -21,9 +21,14 @@ if [ "$ENCODER_TYPE" = "crl" ]; then
     echo -e "\n1.CRL. Create multi-task CRL pretraining shards (if not already created)"
     # Uncomment to create CRL shards:
     # python -m src.database_to_dataset.database_to_crl_pretraining_shards --verbose --subjects-per-shard 25
+    # python -m src.database_to_dataset.database_to_crl_pretraining_shards_EEGChallengeDataset --verbose --subjects-per-shard 5
+    # python -m src.database_to_dataset.database_to_crl_pretraining_shards_EEGChallengeDataset --verbose --subjects-per-shard 5 --release "R1"
 
     echo -e "\n2.CRL. Running CRL pretraining (200 epochs)..."
     python -m src.ML_pipeline_test.crl_pretraining --epochs 200 --batch-size 256
+    # pretraining 1 release 200/300 epochs ?
+    # python -m src.ML_pipeline_test.crl_pretraining --epochs 200 --batch-size 256 --data-pattern ### comment bien injecter le data pattern quand de base c'est default=str(ml_config.DATA_DIR / "crl_pretraining_data_shard_*.pkl") ? 
+    # pretraining multi-release 20/30 epochs ?
 else
     echo -e "\n2. Running autoencoder pretraining (100 epochs)..."
     python -m src.ML_pipeline_test.pretraining --epochs 100 --batch-size 32

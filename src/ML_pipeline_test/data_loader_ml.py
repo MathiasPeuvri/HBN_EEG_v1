@@ -54,7 +54,7 @@ def create_dataloaders(dataset_type: str = 'pretraining',
             train_loader = DataLoader(
                 train_dataset,
                 batch_size=batch_size,
-                num_workers=0,  # Start with 0, can optimize later
+                num_workers=0,  
                 pin_memory=config.DEVICE.type == 'cuda'
             )
             val_loader = DataLoader(
@@ -154,7 +154,7 @@ def create_dataloaders(dataset_type: str = 'pretraining',
             train_loader = DataLoader(
                 train_dataset,
                 batch_size=batch_size,
-                num_workers=0,  # Start with 0, can optimize later
+                num_workers=0, 
                 pin_memory=config.DEVICE.type == 'cuda'
             )
             val_loader = DataLoader(

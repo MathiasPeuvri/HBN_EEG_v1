@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 # Add project root to path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 # Import existing refactored functions
@@ -32,7 +34,7 @@ def create_evaluation_datasets(subjects_limit: Optional[int] = None, verbose: bo
         Dict[str, List[Path]]: Dictionary mapping dataset type to created file paths
     """
     # Configure paths for evaluation
-    base_path = Path("/home/mts/HBN_EEG_v1")
+    base_path = PROJECT_ROOT
     db_root = base_path / "database"
     output_dir = base_path / "datasets" / "evaluation_datasets"
     
@@ -172,7 +174,7 @@ def verify_evaluation_datasets(output_dir: Optional[Path] = None, verbose: bool 
         bool: True if datasets exist and are valid
     """
     if output_dir is None:
-        output_dir = Path("/home/mts/HBN_EEG_v1/datasets/evaluation_datasets")
+        output_dir = PROJECT_ROOT / "datasets" / "evaluation_datasets"
         
     created_files = find_created_datasets(output_dir)
     

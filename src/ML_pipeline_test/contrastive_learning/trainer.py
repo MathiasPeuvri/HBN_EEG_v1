@@ -104,7 +104,7 @@ def pretrain_contrastive(
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        num_workers=0,  # Single-process loading (augmentations are CPU-heavy)
+        num_workers=0, 
         pin_memory=True if device.type == 'cuda' else False
     )
 

@@ -10,7 +10,8 @@ import torch
 VERBOSE = False
 
 # Project paths
-PROJECT_ROOT = Path("/home/mts/HBN_EEG_v1")
+# Détection auto racine du projet (ici src/ML_pipeline_test/config.py -> on remonte de 2 niveaux pour la racine)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent 
 ML_DIR = PROJECT_ROOT / "src" / "ML_pipeline_test"
 DATA_DIR = PROJECT_ROOT / "datasets"
 
@@ -39,6 +40,7 @@ PRETRAINING_DATA_PATH = PRETRAINING_DATA_PATTERN
 
 # Downstream data paths - support sharding
 DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "challenge1_data_shard_*.pkl") # This is used for challenge 1 response time
+DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "eval/R*.pkl")
 #DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "posttraining_data_shard_*.pkl") # I think this is used for dataset created according to any behavioral task
 #DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "pretraining_data_shard_*.pkl") # I think this is what we actually want for challenge 2
 # Fallback to single file if no shards found
@@ -60,7 +62,6 @@ if not glob.glob(DOWNSTREAM_DATA_PATTERN):
 
 # For backward compatibility, keep old name as alias
 DOWNSTREAM_DATA_PATH = DOWNSTREAM_DATA_PATTERN
-
 # Psychopathology data path
 PARTICIPANTS_TSV_PATH = PROJECT_ROOT / "database/R1_L100/participants.tsv"
 PSYCHOPATHOLOGY_FACTORS = ["p_factor", "attention", "internalizing", "externalizing"]

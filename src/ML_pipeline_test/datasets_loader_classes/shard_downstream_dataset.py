@@ -13,6 +13,26 @@ from typing import Iterator, Tuple, Optional, Dict, Any
 from .. import config
 
 
+def convert_maximv1_format(data):
+    """Convert eval format (winwdows/vals) to standard format (signal/response_time)."""
+    # Convert to DataFrame if needed
+    if not isinstance(data, pd.DataFrame):
+        data = pd.DataFrame(data)
+
+    # Check if already in expected format
+    if 'signal' in data.columns or 'winwdows' not in data.columns:
+        return data
+
+    # Unfold: 1 row with N windows -> N rows with 1 window each
+    rows = [{'signal': row['winwdows'][i], 'response_time': row['vals'][i, 0],
+             'p_factor': row['vals'][i, 1], 'attention': row['vals'][i, 2],
+             'internalizing': row['vals'][i, 3], 'externalizing': row['vals'][i, 4],
+             'subject': row['subject']}
+            for _, row in data.iterrows() for i in range(len(row['winwdows']))]
+
+    return pd.DataFrame(rows)
+
+
 class SequentialShardDownstreamDataset(IterableDataset):
     """Sequential shard dataset for downstream tasks with memory efficiency"""
     
@@ -100,26 +120,25 @@ class SequentialShardDownstreamDataset(IterableDataset):
         for shard_file in self.shard_files:
             with open(shard_file, 'rb') as f:
                 shard_data = pickle.load(f)
-            
-            # Handle DataFrame format
-            if isinstance(shard_data, pd.DataFrame):
-                df_filtered = shard_data.copy()
-                
-                # Filter data based on TARGET_EVENTS if specified (skip for psychopathology factors)
-                if config.TARGET_EVENTS is not None and not self.is_psychopathology_target:
-                    mask = df_filtered[config.TARGET_COLUMN].isin(config.TARGET_EVENTS)
-                    df_filtered = df_filtered[mask]
-                
-                # Collect unique labels for this shard
-                if self.is_psychopathology_target:
-                    # For psychopathology factors, get unique subject IDs and map to factor values
-                    for _, row in df_filtered.iterrows():
-                        subject_id = row['subject']
-                        if subject_id in self.psycho_factor_map:
-                            unique_labels.add(self.psycho_factor_map[subject_id])
-                else:
-                    # Use column from data directly
-                    unique_labels.update(df_filtered[config.TARGET_COLUMN].unique())
+
+            shard_data = convert_maximv1_format(shard_data)
+            df_filtered = shard_data.copy()
+
+            # Filter data based on TARGET_EVENTS if specified (skip for psychopathology factors)
+            if config.TARGET_EVENTS is not None and not self.is_psychopathology_target:
+                mask = df_filtered[config.TARGET_COLUMN].isin(config.TARGET_EVENTS)
+                df_filtered = df_filtered[mask]
+
+            # Collect unique labels for this shard
+            if self.is_psychopathology_target:
+                # For psychopathology factors, get unique subject IDs and map to factor values
+                for _, row in df_filtered.iterrows():
+                    subject_id = row['subject']
+                    if subject_id in self.psycho_factor_map:
+                        unique_labels.add(self.psycho_factor_map[subject_id])
+            else:
+                # Use column from data directly
+                unique_labels.update(df_filtered[config.TARGET_COLUMN].unique())
         
         # Create sorted label mapping for consistency
         sorted_labels = sorted(unique_labels)
@@ -138,67 +157,62 @@ class SequentialShardDownstreamDataset(IterableDataset):
             # Load shard with context manager for memory cleanup
             with open(shard_file, 'rb') as f:
                 shard_data = pickle.load(f)
-            
-            # Handle DataFrame format (expected for downstream tasks)
-            if isinstance(shard_data, pd.DataFrame):
-                df_filtered = shard_data.copy()
-                
-                # Filter data based on TARGET_EVENTS if specified (skip for psychopathology factors)
-                if config.TARGET_EVENTS is not None and not self.is_psychopathology_target:
-                    mask = df_filtered[config.TARGET_COLUMN].isin(config.TARGET_EVENTS)
-                    df_filtered = df_filtered[mask]
-                
-                # Extract signals and labels
-                sample_pairs = []
-                for _, row in df_filtered.iterrows():
-                    signal = row['signal']
-                    
-                    # Ensure signal has correct shape
-                    if signal.shape == (config.NUM_CHANNELS, config.POSTTRAINING_SEQ_LEN):
-                        # Extract target value
-                        if self.is_psychopathology_target:
-                            # Get subject ID and lookup psychopathology factor
-                            subject_id = row['subject']
-                            if subject_id in self.psycho_factor_map:
-                                target_value = self.psycho_factor_map[subject_id]
-                            else:
-                                # Skip subjects not in participants.tsv
-                                continue
+
+            shard_data = convert_maximv1_format(shard_data)
+            df_filtered = shard_data.copy()
+
+            # Filter data based on TARGET_EVENTS if specified (skip for psychopathology factors)
+            if config.TARGET_EVENTS is not None and not self.is_psychopathology_target:
+                mask = df_filtered[config.TARGET_COLUMN].isin(config.TARGET_EVENTS)
+                df_filtered = df_filtered[mask]
+
+            # Extract signals and labels
+            sample_pairs = []
+            for _, row in df_filtered.iterrows():
+                signal = row['signal']
+
+                # Ensure signal has correct shape
+                if signal.shape == (config.NUM_CHANNELS, config.POSTTRAINING_SEQ_LEN):
+                    # Extract target value
+                    if self.is_psychopathology_target:
+                        # Get subject ID and lookup psychopathology factor
+                        subject_id = row['subject']
+                        if subject_id in self.psycho_factor_map:
+                            target_value = self.psycho_factor_map[subject_id]
                         else:
-                            # Use column from data as before
-                            target_value = row[config.TARGET_COLUMN]
-                        
-                        # Skip invalid values for both task types
-                        if self.task_type == 'regression' and pd.isna(target_value):
+                            # Skip subjects not in participants.tsv
                             continue
-                        # Not convinced, have to review again
-                        if self.task_type == 'classification' and target_value == 'no_response': 
-                            continue
-                        
-                        # For classification, map to numeric label
-                        if self.task_type == 'classification':
-                            target = self.label_map[target_value]
-                        else:
-                            target = target_value
-                        
-                        sample_pairs.append((signal.astype(np.float32), target))
-                
-                # Shuffle samples within shard
-                rng.shuffle(sample_pairs)
-                
-                # Yield samples as tensors
-                for signal, label in sample_pairs:
-                    signal_tensor = torch.tensor(signal, dtype=torch.float32)
-                    # Use appropriate tensor type based on task type
-                    if self.task_type == 'classification':
-                        label_tensor = torch.tensor(label, dtype=torch.long)
                     else:
-                        label_tensor = torch.tensor(label, dtype=torch.float32)
-                    yield signal_tensor, label_tensor
-                
-                # Explicit cleanup to free memory immediately
-                del shard_data, df_filtered, sample_pairs
-            else:
-                # Legacy format not expected for downstream tasks
-                raise ValueError(f"Unexpected data format in shard {shard_file}. "
-                               "Expected DataFrame for downstream tasks.")
+                        # Use column from data as before
+                        target_value = row[config.TARGET_COLUMN]
+
+                    # Skip invalid values for both task types
+                    if self.task_type == 'regression' and pd.isna(target_value):
+                        continue
+                    # Not convinced, have to review again
+                    if self.task_type == 'classification' and target_value == 'no_response':
+                        continue
+
+                    # For classification, map to numeric label
+                    if self.task_type == 'classification':
+                        target = self.label_map[target_value]
+                    else:
+                        target = target_value
+
+                    sample_pairs.append((signal.astype(np.float32), target))
+
+            # Shuffle samples within shard
+            rng.shuffle(sample_pairs)
+
+            # Yield samples as tensors
+            for signal, label in sample_pairs:
+                signal_tensor = torch.tensor(signal, dtype=torch.float32)
+                # Use appropriate tensor type based on task type
+                if self.task_type == 'classification':
+                    label_tensor = torch.tensor(label, dtype=torch.long)
+                else:
+                    label_tensor = torch.tensor(label, dtype=torch.float32)
+                yield signal_tensor, label_tensor
+
+            # Explicit cleanup to free memory immediately
+            del shard_data, df_filtered, sample_pairs

@@ -19,6 +19,8 @@ import torch
 from tqdm import tqdm
 
 # Add project root to path
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from src.ML_pipeline_test import config
@@ -293,15 +295,17 @@ def run_comprehensive_evaluation(
         DataFrame with evaluation results
     """
     if output_dir is None:
-        output_dir = Path("/home/mts/HBN_EEG_v1/src/ML_pipeline_test/saved_models")
+        output_dir = PROJECT_ROOT / "src" / "ML_pipeline_test" / "saved_models"
         if not output_dir.exists():
             output_dir.mkdir(parents=True, exist_ok=True)
     
     if dataset_dir is None:
-        dataset_dir = Path("/home/mts/HBN_EEG_v1/datasets/evaluation_datasets")
+        dataset_dir = PROJECT_ROOT / "datasets" / "evaluation_datasets"
     
     # Set participants.tsv path for R2_mini_L100_bdf evaluation database
-    participants_tsv_path = Path("/home/mts/HBN_EEG_v1/database/R2_mini_L100_bdf/participants.tsv")
+    participants_tsv_path = PROJECT_ROOT / "database" / "R2_mini_L100_bdf" / "participants.tsv"
+    print(f"WARNING; check that {participants_tsv_path} is correct (R2 mini L100 bdf is probably renamed)")
+    exit()
 
     print("=" * 60)
     print("COMPREHENSIVE MODEL EVALUATION")

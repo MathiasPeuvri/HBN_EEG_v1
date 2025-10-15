@@ -10,6 +10,11 @@ Implements the architecture from Mohsenvand et al. (2020):
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from src.preprocessing.preprocessor import EEGPreprocessor
 from .config import N_CHANS, SAMPLEPOINTS, PROJECTOR_OUTPUT_DIM
 
 
@@ -244,9 +249,13 @@ class EEGContrastiveModel(nn.Module):
         in_channels: int = N_CHANS,
         repeat_n: int = 4,
         n_samples: int = SAMPLEPOINTS,
-        output_dim: int = PROJECTOR_OUTPUT_DIM
+        output_dim: int = PROJECTOR_OUTPUT_DIM,
+        enable_preprocessing: bool = True
     ):
         super(EEGContrastiveModel, self).__init__()
+        self.enable_preprocessing = enable_preprocessing
+        if enable_preprocessing:
+            self.preprocessor = EEGPreprocessor(zscore_method='channel_wise')
         self.encoder = ConvolutionalEncoder(in_channels, repeat_n, n_samples)
         self.projector = Projector(input_dim=4, output_dim=output_dim)
 
@@ -261,6 +270,8 @@ class EEGContrastiveModel(nn.Module):
             encoded: Encoder features (batch, 4, time_reduced)
             projected: Projected features (batch, output_dim)
         """
+        if self.enable_preprocessing:
+            x = self.preprocessor(x)
         encoded = self.encoder(x)
         projected = self.projector(encoded)
         return encoded, projected

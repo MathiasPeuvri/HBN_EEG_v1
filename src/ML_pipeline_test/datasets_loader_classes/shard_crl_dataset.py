@@ -24,8 +24,7 @@ class ContrastiveShardDataset(IterableDataset):
     """
     Iterable dataset for contrastive learning on sharded EEG data.
 
-    Unified version with optional metadata support. Loads shards sequentially
-    and generates augmented pairs on-the-fly for memory efficiency.
+    Loads shards sequentially and generates augmented pairs on-the-fly for memory efficiency.
 
     Args:
         shard_pattern: Glob pattern for shard files (e.g., "crl_pretraining_data_shard_*.pkl")
