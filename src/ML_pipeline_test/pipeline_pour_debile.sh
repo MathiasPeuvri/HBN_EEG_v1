@@ -4,6 +4,7 @@
   # 2. Train downstream regressors for both challenges
   python regression.py --encoder_type crl --target response_time  # Challenge 1
   python regression.py --encoder_type crl --target externalizing   # Challenge 2
+python -m src.ML_pipeline_test.regression --encoder_type crl --target externalizing --unfreeze
 
   # 3. Adapt submission.py to load your models
   # (we can do this together)

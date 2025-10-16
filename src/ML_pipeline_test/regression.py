@@ -121,9 +121,12 @@ class RegressionHead(nn.Module):
 
 class CRLRegressionHead(nn.Module):
     """Regression head for CRL encoder (uses bi-LSTM Projector in regression mode)"""
-    def __init__(self, encoder, freeze_encoder=True, dropout=config.CLS_DROPOUT):
+    def __init__(self, encoder, freeze_encoder=True, dropout=config.CLS_DROPOUT,
+                 window_size=200, use_dual_window=True):
         super().__init__()
         self.encoder = encoder
+        self.window_size = window_size  # Window size encoder was trained on (200)
+        self.use_dual_window = use_dual_window  # Enable dual-window inference for longer sequences
 
         if freeze_encoder:
             for param in encoder.parameters():
@@ -137,9 +140,46 @@ class CRLRegressionHead(nn.Module):
             task_mode='regression')
 
     def forward(self, x):
-        features = self.encoder(x)  # (batch, 4, time_reduced)
-        output = self.projector(features)  # (batch,) - squeeze done in Projector
-        return output
+        """
+        Forward pass with optional dual-window inference for sequences > window_size.
+
+        For sequences longer than window_size (e.g., 400 samplepoints for Challenge 2):
+        - Extract first 200 samplepoints and predict
+        - Extract last 200 samplepoints and predict
+        - Average the two predictions
+
+        Args:
+            x: (batch, channels, time)
+
+        Returns:
+            output: (batch,) regression predictions
+        """
+        batch_size, n_channels, seq_len = x.shape
+
+        # Standard forward for sequences matching encoder's trained window size
+        if seq_len == self.window_size or not self.use_dual_window:
+            features = self.encoder(x)  # (batch, 4, time_reduced)
+            output = self.projector(features)  # (batch,) - squeeze done in Projector
+            return output
+
+        # Dual-window inference for longer sequences
+        if seq_len > self.window_size:
+            # First window: first 200 timepoints
+            x_first = x[:, :, :self.window_size]  # (batch, channels, 200)
+            features_first = self.encoder(x_first)
+            pred_first = self.projector(features_first)  # (batch,)
+
+            # Second window: last 200 timepoints
+            x_last = x[:, :, -self.window_size:]  # (batch, channels, 200)
+            features_last = self.encoder(x_last)
+            pred_last = self.projector(features_last)  # (batch,)
+
+            # Average predictions from both windows
+            output = (pred_first + pred_last) / 2.0
+            return output
+
+        else:
+            raise ValueError(f"Sequence length ({seq_len}) is smaller than window_size ({self.window_size})")
 
 
 def regression_train_epoch(model, train_loader, optimizer, criterion, epoch, epochs_n=config.CLS_EPOCHS):

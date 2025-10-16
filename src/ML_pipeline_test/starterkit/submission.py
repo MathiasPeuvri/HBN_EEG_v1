@@ -265,7 +265,18 @@ class CRLRegressionHead(nn.Module):
         )
 
     def forward(self, x):
-        """x: (batch, channels, time) -> (batch, 1)"""
+        """
+        x: (batch, channels, time) -> (batch, 1)
+
+        NOTE FOR CHALLENGE 2 (400 samplepoints):
+        If using 400-sample windows with an encoder trained on 200 samples,
+        consider implementing dual-window inference:
+        - pred_first = forward(x[:, :, :200])
+        - pred_last = forward(x[:, :, -200:])
+        - output = (pred_first + pred_last) / 2
+
+        See src/ML_pipeline_test/regression.py CRLRegressionHead for implementation.
+        """
         features = self.encoder(x)  # (batch, 4, time_reduced)
         output = self.projector(features)  # (batch,)
         return output.unsqueeze(-1)  # (batch, 1) for compatibility

@@ -5,9 +5,11 @@ import glob
 import hashlib
 import pickle
 import random
+import re
 import numpy as np
 import pandas as pd
 import torch
+from pathlib import Path
 from torch.utils.data import IterableDataset
 from typing import Iterator, Tuple, Optional, Dict, Any
 from .. import config
@@ -39,7 +41,7 @@ class SequentialShardDownstreamDataset(IterableDataset):
     
     def __init__(self, shard_pattern: str, task_type: str = None,
                  train_split: float = 0.8, is_train: bool = True, seed: int = 42,
-                 data_format: str = "v1"):
+                 data_format: str = "standard"):
         """
         Args:
             shard_pattern: Glob pattern for shard files (e.g., "downstream_data_shard_*.pkl")
@@ -47,8 +49,10 @@ class SequentialShardDownstreamDataset(IterableDataset):
             train_split: Proportion of shards for training
             is_train: Whether this is training or validation set
             seed: Random seed for reproducibility
-            data_format: for chall 1 windowing from maxime files,
-                'v1' (standard) or 'v2_windowed' (temporal localization)
+            data_format: Format of shard data:
+                'standard' (default) - standard shards with 'signal' column, no conversion
+                'v1' - Maxime's format with winwdows/vals, converted to signal/response_time
+                'v2_windowed' - Maxime's format with temporal localization augmentation
         """
         if task_type is None:
             task_type = config.TASK_TYPE
@@ -63,18 +67,12 @@ class SequentialShardDownstreamDataset(IterableDataset):
         self.train_split = train_split
         self.is_train = is_train
         self.seed = seed
-        
+
         # Check if target is a psychopathology factor
         self.is_psychopathology_target = config.TARGET_COLUMN in config.PSYCHOPATHOLOGY_FACTORS
         if self.is_psychopathology_target:
-            # Load participants data for psychopathology factor lookup
-            self.participants_df = pd.read_csv(config.PARTICIPANTS_TSV_PATH, sep='\t')
-            # Create mapping from subject_id to factor value
-            self.psycho_factor_map = {}
-            for _, row in self.participants_df.iterrows():
-                # Handle both with and without 'sub-' prefix
-                subject_id = row['participant_id'].replace('sub-', '')
-                self.psycho_factor_map[subject_id] = row[config.TARGET_COLUMN]
+            # Detect releases from shard filenames and load corresponding participants.tsv
+            self.psycho_factor_map = self._load_participants_for_shards()
             print(f"Loaded psychopathology factor '{config.TARGET_COLUMN}' for {len(self.psycho_factor_map)} participants")
         
         # For classification, build global label mapping from all shards
@@ -86,51 +84,104 @@ class SequentialShardDownstreamDataset(IterableDataset):
         
         # Deterministic train/val split using stable hashing
         self._split_shards()
-        
-    def _get_stable_hash(self, filename: str) -> int:
-        """Get deterministic hash for filename"""
-        return int(hashlib.md5(filename.encode()).hexdigest(), 16)
-    
-    def _split_shards(self):
-        """Split shards into train/val sets deterministically"""
-        train_shards = []
-        val_shards = []
-        
+
+    def _detect_releases_from_shards(self) -> set:
+        """
+        Detect release identifiers from shard filenames.
+
+        Looks for patterns like:
+        - challenge2_data_shard_0_R1.pkl -> R1
+        - pretraining_data_shard_5_R2.pkl -> R2
+
+        Returns:
+            set: Set of release identifiers (e.g., {'R1', 'R2'})
+        """
+        releases = set()
+
+        # Pattern to match _R<number> in filenames
+        release_pattern = re.compile(r'_R(\d+)(?:\.pkl)?$')
+
         for shard_file in self.shard_files:
-            # Use stable hash for consistent splitting
-            shard_hash = self._get_stable_hash(shard_file)
-            if (shard_hash % 100) < (self.train_split * 100):
-                train_shards.append(shard_file)
+            filename = Path(shard_file).name
+            match = release_pattern.search(filename)
+            if match:
+                release_num = match.group(1)
+                releases.add(f"R{release_num}")
+
+        return releases
+
+    def _load_participants_for_shards(self) -> Dict[str, float]:
+        """
+        Load participants.tsv files for all releases detected in shards.
+
+        Returns:
+            dict: Mapping from subject_id to psychopathology factor value
+        """
+        releases = self._detect_releases_from_shards()
+
+        if not releases:
+            print("Warning: No release identifiers found in shard filenames. Using default participants.tsv")
+            if config.PARTICIPANTS_TSV_PATH and config.PARTICIPANTS_TSV_PATH.exists():
+                releases = {'R1'}  # Default fallback
             else:
-                val_shards.append(shard_file)
-        
+                raise FileNotFoundError("No participants.tsv found and no release detected from shards")
+
+        print(f"Detected releases from shards: {sorted(releases)}")
+
+        # Load and merge participants.tsv from all detected releases
+        psycho_factor_map = {}
+
+        for release in sorted(releases):
+            try:
+                participants_path = config.get_participants_tsv_for_release(release)
+                print(f"  Loading {release}: {participants_path.relative_to(config.PROJECT_ROOT)}")
+
+                participants_df = pd.read_csv(participants_path, sep='\t')
+
+                # Create mapping from subject_id to factor value
+                for _, row in participants_df.iterrows():
+                    # Handle both with and without 'sub-' prefix
+                    subject_id = row['participant_id'].replace('sub-', '')
+                    if config.TARGET_COLUMN in row:
+                        psycho_factor_map[subject_id] = row[config.TARGET_COLUMN]
+
+            except (FileNotFoundError, ValueError) as e:
+                print(f"  Warning: Could not load participants.tsv for {release}: {e}")
+                continue
+
+        if not psycho_factor_map:
+            raise ValueError(
+                f"Could not load psychopathology factor '{config.TARGET_COLUMN}' for any detected releases: {releases}"
+            )
+
+        return psycho_factor_map
+
+    def _split_shards(self):
+        """Split shards into train/val sets with random shuffle (deterministic via seed)"""
+        rng = random.Random(self.seed)
+        shuffled = sorted(self.shard_files)
+        rng.shuffle(shuffled)
+        n_train = max(1, int(len(shuffled) * self.train_split))
+        train_shards = shuffled[:n_train] or [shuffled[0]]
+        val_shards = shuffled[n_train:] or [shuffled[-1]]
         self.active_shards = train_shards if self.is_train else val_shards
-        
-        if not self.active_shards:
-            # If no shards assigned due to small dataset, use fallback
-            if not self.is_train and self.shard_files:
-                # If no val shards, use last shard
-                self.active_shards = [self.shard_files[-1]]
-            elif self.is_train and self.shard_files:
-                # If no train shards, use first shard
-                self.active_shards = [self.shard_files[0]]
-        
-        print(f"{'Train' if self.is_train else 'Val'} downstream dataset: "
-              f"{len(self.active_shards)} shards")
+        print(f"{'Train' if self.is_train else 'Val'} downstream dataset: {len(self.active_shards)}/{len(shuffled)} shards")
     
     def _build_global_label_map(self) -> Dict[Any, int]:
         """Build global label mapping by scanning all shards"""
         unique_labels = set()
-        
+
         for shard_file in self.shard_files:
             with open(shard_file, 'rb') as f:
                 shard_data = pickle.load(f)
 
-            # Apply appropriate format conversion
+            # Apply appropriate format conversion (skip for standard format)
             if self.data_format == "v1":
                 shard_data = convert_maximv1_format(shard_data)
-            else:  # v2_windowed
+            elif self.data_format == "v2_windowed":
                 shard_data = convert_maximv2_format_with_window_augmentation(shard_data)
+            # else: standard format, no conversion needed
+
             df_filtered = shard_data.copy()
 
             # Filter data based on TARGET_EVENTS if specified (skip for psychopathology factors)
@@ -143,6 +194,9 @@ class SequentialShardDownstreamDataset(IterableDataset):
                 # For psychopathology factors, get unique subject IDs and map to factor values
                 for _, row in df_filtered.iterrows():
                     subject_id = row['subject']
+                    # Handle case where subject_id might be a Series instead of a scalar
+                    if isinstance(subject_id, pd.Series):
+                        subject_id = subject_id.iloc[0] if len(subject_id) > 0 else subject_id.values[0]
                     if subject_id in self.psycho_factor_map:
                         unique_labels.add(self.psycho_factor_map[subject_id])
             else:
@@ -165,10 +219,13 @@ class SequentialShardDownstreamDataset(IterableDataset):
             with open(shard_file, 'rb') as f:
                 shard_data = pickle.load(f)
 
-            if self.data_format == "v1": # chall 1 standard
+            # Apply appropriate format conversion (skip for standard format)
+            if self.data_format == "v1":
                 shard_data = convert_maximv1_format(shard_data)
-            else:  # inwindow_rtidx_augmentation approach
+            elif self.data_format == "v2_windowed":
                 shard_data = convert_maximv2_format_with_window_augmentation(pd.DataFrame(shard_data))
+            # else: standard format, no conversion needed
+
             df_filtered = shard_data.copy()
 
             # Filter data based on TARGET_EVENTS if specified (skip for psychopathology factors)
@@ -185,12 +242,19 @@ class SequentialShardDownstreamDataset(IterableDataset):
                 row = df_filtered.iloc[idx]
                 signal = row['signal']
 
-                if signal.shape != (config.NUM_CHANNELS, config.POSTTRAINING_SEQ_LEN):
+                # Validate signal shape - accept both standard (200) and challenge 2 (400) window sizes
+                if signal.shape[0] != config.NUM_CHANNELS:
+                    continue
+                if signal.shape[1] not in [config.POSTTRAINING_SEQ_LEN, config.CHALLENGE2_SEQ_LEN]:
+                    # Accept 200 (standard) or 400 (challenge 2) samplepoints
                     continue
 
                 # Extract target
                 if self.is_psychopathology_target:
                     subject_id = row['subject']
+                    # Handle case where subject_id might be a Series instead of a scalar
+                    if isinstance(subject_id, pd.Series):
+                        subject_id = subject_id.iloc[0] if len(subject_id) > 0 else subject_id.values[0]
                     if subject_id not in self.psycho_factor_map:
                         continue
                     target_value = self.psycho_factor_map[subject_id]
