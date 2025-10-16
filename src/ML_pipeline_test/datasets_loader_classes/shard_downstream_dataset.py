@@ -11,6 +11,7 @@ import torch
 from torch.utils.data import IterableDataset
 from typing import Iterator, Tuple, Optional, Dict, Any
 from .. import config
+from ...test_pkl_maxime import convert_maximv2_format_with_window_augmentation
 
 
 def convert_maximv1_format(data):
@@ -37,7 +38,8 @@ class SequentialShardDownstreamDataset(IterableDataset):
     """Sequential shard dataset for downstream tasks with memory efficiency"""
     
     def __init__(self, shard_pattern: str, task_type: str = None,
-                 train_split: float = 0.8, is_train: bool = True, seed: int = 42):
+                 train_split: float = 0.8, is_train: bool = True, seed: int = 42,
+                 data_format: str = "v1"):
         """
         Args:
             shard_pattern: Glob pattern for shard files (e.g., "downstream_data_shard_*.pkl")
@@ -45,11 +47,14 @@ class SequentialShardDownstreamDataset(IterableDataset):
             train_split: Proportion of shards for training
             is_train: Whether this is training or validation set
             seed: Random seed for reproducibility
+            data_format: for chall 1 windowing from maxime files,
+                'v1' (standard) or 'v2_windowed' (temporal localization)
         """
         if task_type is None:
             task_type = config.TASK_TYPE
         self.task_type = task_type
-        
+        self.data_format = data_format
+
         # Find all shard files
         self.shard_files = sorted(glob.glob(shard_pattern))
         if not self.shard_files:
@@ -121,7 +126,11 @@ class SequentialShardDownstreamDataset(IterableDataset):
             with open(shard_file, 'rb') as f:
                 shard_data = pickle.load(f)
 
-            shard_data = convert_maximv1_format(shard_data)
+            # Apply appropriate format conversion
+            if self.data_format == "v1":
+                shard_data = convert_maximv1_format(shard_data)
+            else:  # v2_windowed
+                shard_data = convert_maximv2_format_with_window_augmentation(shard_data)
             df_filtered = shard_data.copy()
 
             # Filter data based on TARGET_EVENTS if specified (skip for psychopathology factors)
@@ -148,17 +157,18 @@ class SequentialShardDownstreamDataset(IterableDataset):
         """Iterate through all shards sequentially, yielding (signal, label) pairs"""
         # Create local random generator for this epoch
         rng = random.Random(self.seed)
-        
-        # Shuffle shard order for this epoch
-        shard_order = self.active_shards.copy()
-        rng.shuffle(shard_order)
-        
+        shard_order = self.active_shards.copy() 
+        rng.shuffle(shard_order) # Shuffle shard order for this epoch
+
         for shard_file in shard_order:
             # Load shard with context manager for memory cleanup
             with open(shard_file, 'rb') as f:
                 shard_data = pickle.load(f)
 
-            shard_data = convert_maximv1_format(shard_data)
+            if self.data_format == "v1": # chall 1 standard
+                shard_data = convert_maximv1_format(shard_data)
+            else:  # inwindow_rtidx_augmentation approach
+                shard_data = convert_maximv2_format_with_window_augmentation(pd.DataFrame(shard_data))
             df_filtered = shard_data.copy()
 
             # Filter data based on TARGET_EVENTS if specified (skip for psychopathology factors)
@@ -166,53 +176,40 @@ class SequentialShardDownstreamDataset(IterableDataset):
                 mask = df_filtered[config.TARGET_COLUMN].isin(config.TARGET_EVENTS)
                 df_filtered = df_filtered[mask]
 
-            # Extract signals and labels
-            sample_pairs = []
-            for _, row in df_filtered.iterrows():
+            # Extract signals and labels - YIELD DIRECTLY (no accumulation)
+            # Shuffle indices instead of data to save RAM
+            indices = np.arange(len(df_filtered))
+            rng.shuffle(indices)
+
+            for idx in indices:
+                row = df_filtered.iloc[idx]
                 signal = row['signal']
 
-                # Ensure signal has correct shape
-                if signal.shape == (config.NUM_CHANNELS, config.POSTTRAINING_SEQ_LEN):
-                    # Extract target value
-                    if self.is_psychopathology_target:
-                        # Get subject ID and lookup psychopathology factor
-                        subject_id = row['subject']
-                        if subject_id in self.psycho_factor_map:
-                            target_value = self.psycho_factor_map[subject_id]
-                        else:
-                            # Skip subjects not in participants.tsv
-                            continue
-                    else:
-                        # Use column from data as before
-                        target_value = row[config.TARGET_COLUMN]
+                if signal.shape != (config.NUM_CHANNELS, config.POSTTRAINING_SEQ_LEN):
+                    continue
 
-                    # Skip invalid values for both task types
-                    if self.task_type == 'regression' and pd.isna(target_value):
+                # Extract target
+                if self.is_psychopathology_target:
+                    subject_id = row['subject']
+                    if subject_id not in self.psycho_factor_map:
                         continue
-                    # Not convinced, have to review again
-                    if self.task_type == 'classification' and target_value == 'no_response':
-                        continue
-
-                    # For classification, map to numeric label
-                    if self.task_type == 'classification':
-                        target = self.label_map[target_value]
-                    else:
-                        target = target_value
-
-                    sample_pairs.append((signal.astype(np.float32), target))
-
-            # Shuffle samples within shard
-            rng.shuffle(sample_pairs)
-
-            # Yield samples as tensors
-            for signal, label in sample_pairs:
-                signal_tensor = torch.tensor(signal, dtype=torch.float32)
-                # Use appropriate tensor type based on task type
-                if self.task_type == 'classification':
-                    label_tensor = torch.tensor(label, dtype=torch.long)
+                    target_value = self.psycho_factor_map[subject_id]
                 else:
-                    label_tensor = torch.tensor(label, dtype=torch.float32)
+                    target_value = row[config.TARGET_COLUMN]
+
+                # Skip invalid
+                if self.task_type == 'regression' and pd.isna(target_value):
+                    continue
+                if self.task_type == 'classification' and target_value == 'no_response':
+                    continue
+
+                # Map label
+                target = self.label_map[target_value] if self.task_type == 'classification' else target_value
+
+                # Yield immediately
+                signal_tensor = torch.tensor(signal.astype(np.float32), dtype=torch.float32)
+                label_tensor = torch.tensor(target, dtype=torch.long if self.task_type == 'classification' else torch.float32)
                 yield signal_tensor, label_tensor
 
             # Explicit cleanup to free memory immediately
-            del shard_data, df_filtered, sample_pairs
+            del shard_data, df_filtered

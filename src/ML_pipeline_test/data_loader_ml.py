@@ -15,17 +15,19 @@ from .datasets_loader_classes.shard_downstream_dataset import SequentialShardDow
 
 NUM_WORKERS = 0
 
-def create_dataloaders(dataset_type: str = 'pretraining', 
+def create_dataloaders(dataset_type: str = 'pretraining',
                        batch_size: Optional[int] = None,
-                       train_split: float = config.TRAIN_SPLIT) -> Tuple[DataLoader, DataLoader]:
+                       train_split: float = config.TRAIN_SPLIT,
+                       data_format: str = "v1") -> Tuple[DataLoader, DataLoader]:
     """
     Create train and validation dataloaders with sharding support
-    
+
     Args:
         dataset_type: 'pretraining', 'classification', or 'regression'
         batch_size: Batch size for dataloaders
         train_split: Proportion of data for training
-        
+        data_format: chall 1 standard or inwindow_rtidx_augmentation approach
+
     Returns:
         train_loader, val_loader
     """
@@ -80,7 +82,7 @@ def create_dataloaders(dataset_type: str = 'pretraining',
     elif dataset_type == 'classification':
         # Check if we have multiple shards or single file
         pattern = config.DOWNSTREAM_DATA_PATTERN
-        
+
         if '*' in pattern and len(glob.glob(pattern)) > 1:
             # Multiple shards - use SequentialShardDownstreamDataset
             train_dataset = SequentialShardDownstreamDataset(
@@ -88,14 +90,16 @@ def create_dataloaders(dataset_type: str = 'pretraining',
                 task_type='classification',
                 train_split=train_split,
                 is_train=True,
-                seed=config.RANDOM_SEED
+                seed=config.RANDOM_SEED,
+                data_format=data_format
             )
             val_dataset = SequentialShardDownstreamDataset(
                 pattern,
-                task_type='classification', 
+                task_type='classification',
                 train_split=train_split,
                 is_train=False,
-                seed=config.RANDOM_SEED
+                seed=config.RANDOM_SEED,
+                data_format=data_format
             )
             
             if batch_size is None:
@@ -130,7 +134,7 @@ def create_dataloaders(dataset_type: str = 'pretraining',
     elif dataset_type == 'regression':
         # Check if we have multiple shards or single file
         pattern = config.DOWNSTREAM_DATA_PATTERN
-        
+
         if '*' in pattern and len(glob.glob(pattern)) > 1:
             # Multiple shards - use SequentialShardDownstreamDataset
             train_dataset = SequentialShardDownstreamDataset(
@@ -138,14 +142,16 @@ def create_dataloaders(dataset_type: str = 'pretraining',
                 task_type='regression',
                 train_split=train_split,
                 is_train=True,
-                seed=config.RANDOM_SEED
+                seed=config.RANDOM_SEED,
+                data_format=data_format
             )
             val_dataset = SequentialShardDownstreamDataset(
                 pattern,
                 task_type='regression',
                 train_split=train_split,
                 is_train=False,
-                seed=config.RANDOM_SEED
+                seed=config.RANDOM_SEED,
+                data_format=data_format
             )
             
             if batch_size is None:
