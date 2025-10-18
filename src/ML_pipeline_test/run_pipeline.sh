@@ -52,6 +52,14 @@ echo -e "\n4.1 Running Regression - Response Time (50 epochs)..."
 python -m src.ML_pipeline_test.regression --encoder_type $ENCODER_TYPE --epochs 50 --batch-size 16 --target response_time
 # Oo broken !!! # check again wich data is used and
 
+
+# Avec encoder CRL gelé (frozen)
+python -m src.ML_pipeline_test.regression --encoder_type crl --target externalizing --epochs 50 --batch-size 32
+
+# Avec encoder CRL non-gelé (fine-tuning)
+python -m src.ML_pipeline_test.regression --encoder_type crl --target externalizing --unfreeze --epochs 50 --batch-size 32
+
+
 # for the following regressions, in config.py, change DOWNSTREAM_DATA_PATTERN to "posttraining_data_shard_*.pkl" (and uncomment line 43)
 echo -e "\n4.2 Running Regression - P-Factor (50 epochs)..."
 python -m src.ML_pipeline_test.regression --encoder_type $ENCODER_TYPE --epochs 50 --batch-size 16 --target p_factor

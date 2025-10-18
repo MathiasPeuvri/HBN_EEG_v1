@@ -11,20 +11,6 @@ from . import config
 from .data_loader_ml import create_dataloaders
 from .models import CNN1DAutoencoder, BinaryClassifier
 
-"""
-Regression pipeline for predicting continuous values (e.g., response_time)
-Based on classification.py but adapted for regression tasks:
-1. Uses MSE loss instead of CrossEntropy
-2. Uses MAE, RMSE, R² metrics instead of accuracy
-3. Outputs single continuous value instead of class probabilities
-4. Model architecture adapted for regression output
-
-Supports two encoder types:
-- 'autoencoder': Original masked autoencoder pretraining
-- 'crl': Contrastive Representation Learning pretraining
-"""
-
-
 def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DAutoencoder):
     """
     Load pretrained encoder (either autoencoder or CRL).
@@ -81,7 +67,6 @@ def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DA
             return None
     else:
         raise ValueError(f"Unknown encoder_type: {encoder_type}. Choose 'autoencoder' or 'crl'.")
-
 
 class RegressionHead(nn.Module):
     """Regression head for autoencoder-based continuous value prediction"""
@@ -189,7 +174,7 @@ def regression_train_epoch(model, train_loader, optimizer, criterion, epoch, epo
     all_preds = []
     all_targets = []
     
-    progress_bar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{epochs_n} [Train]')
+    progress_bar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs_n} [Train]", leave=False)
     
     for batch_idx, (data, targets) in enumerate(progress_bar):
         data, targets = data.to(config.DEVICE), targets.to(config.DEVICE)
@@ -231,7 +216,7 @@ def validate_regression(model, val_loader, criterion, verbose=config.VERBOSE):
     batch_count = 0
     
     with torch.no_grad():
-        for data, targets in tqdm(val_loader, desc='Validation'):
+        for data, targets in tqdm(val_loader, desc='Validation', leave=False):
             data, targets = data.to(config.DEVICE), targets.to(config.DEVICE)
             
             # Forward pass
@@ -296,8 +281,14 @@ def train_regressor(encoder_type='autoencoder',
     config.TARGET_EVENTS = None  # Use all data for regression
 
     # Create dataloaders
-    train_loader, val_loader = create_dataloaders(
-        dataset_type=dataset_type, batch_size=batch_size)
+    if target_column == 'response_time':
+        config.DOWNSTREAM_DATA_PATTERN = config.DOWNSTREAM_CHALL1_PATTERN
+        train_loader, val_loader = create_dataloaders(
+            dataset_type=dataset_type, batch_size=batch_size, data_format="v1")
+    else:
+        train_loader, val_loader = create_dataloaders(
+            dataset_type=dataset_type, batch_size=batch_size)
+            
 
     # Load pretrained encoder
     encoder = load_pretrained_encoder(encoder_type=encoder_type, autoencoder_class=autoencoder_class)

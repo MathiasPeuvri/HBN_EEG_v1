@@ -81,7 +81,7 @@ def create_dataloaders(dataset_type: str = 'pretraining',
                 batch_size = config.AE_BATCH_SIZE
     elif dataset_type == 'classification':
         # Check if we have multiple shards or single file
-        pattern = config.DOWNSTREAM_DATA_PATTERN
+        pattern = config.DOWNSTREAM_CHALL1_PATTERN if data_format == "v1" else config.DOWNSTREAM_DATA_PATTERN
 
         if '*' in pattern and len(glob.glob(pattern)) > 1:
             # Multiple shards - use SequentialShardDownstreamDataset

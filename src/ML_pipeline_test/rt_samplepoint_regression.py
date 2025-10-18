@@ -47,10 +47,10 @@ def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DA
             checkpoint = torch.load(config.AUTOENCODER_PATH, map_location=config.DEVICE, weights_only=False)
             autoencoder = autoencoder_class()
             autoencoder.load_state_dict(checkpoint['model_state_dict'])
-            print(f"✓ Loaded pretrained autoencoder from epoch {checkpoint['epoch']}")
+            print(f"Loaded pretrained autoencoder from epoch {checkpoint['epoch']}")
             return autoencoder.encoder
         except FileNotFoundError:
-            print("⚠ Warning: No pretrained autoencoder found. Using random initialization.")
+            print("No pretrained autoencoder found. Using random initialization.")
             return None
 
     elif encoder_type == 'crl':
@@ -62,7 +62,6 @@ def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DA
                 raise FileNotFoundError(f"No CRL checkpoint found at {config.MODEL_DIR}")
 
             checkpoint = torch.load(crl_checkpoint_path, map_location=config.DEVICE, weights_only=False)
-
             # Create full CRL model
             crl_config = checkpoint.get('config', {})
             model = EEGContrastiveModel(
@@ -238,7 +237,7 @@ def train_regressor(encoder_type='autoencoder',
                    epochs=config.CLS_EPOCHS,
                    batch_size=config.CLS_BATCH_SIZE,
                    freeze_encoder=True,
-                   shard_pattern="datasets/eval/R*_clickcentered.pkl"):
+                   shard_pattern=config.DOWNSTREAM_CHALL1_CLICKCENTERED_PATTERN):
     """
     Main training function for RT samplepoint localization regressor.
 
@@ -400,7 +399,7 @@ Examples:
                        help='Unfreeze encoder for fine-tuning')
     parser.add_argument('--target', type=str, default='rt_idx',
                        help='Target column to predict (default: rt_idx)')
-    parser.add_argument('--shard-pattern', type=str, default="datasets/eval/R*_clickcentered.pkl",
+    parser.add_argument('--shard-pattern', type=str, default=config.DOWNSTREAM_CHALL1_CLICKCENTERED_PATTERN,
                        help='Pattern for clickcentered data files')
     args = parser.parse_args()
 

@@ -6,12 +6,8 @@ Unlike database_to_pretraining_shards.py (SuS only), this script aggregates
 data from multiple tasks to learn more robust EEG representations.
 
 Tasks included:
-- RestingState (RS)
-- surroundSupp (SuS) - passive
-- contrastChangeDetection (CCD) - active
-- seqLearning8target (SL)
-- symbolSearch (SyS)
-- DespicableMe (MW) - movie watching
+- RestingState (RS), surroundSupp (SuS), contrastChangeDetection (CCD), 
+seqLearning8target (SL), symbolSearch (SyS), DespicableMe (MW)
 """
 
 import pickle
@@ -31,10 +27,8 @@ from eegdash import EEGChallengeDataset
 
 
 # All 6 HBN tasks for multi-task pretraining
-DEFAULT_TASKS = [
-    "RestingState", "surroundSupp",
-    "contrastChangeDetection", "seqLearning8target", "symbolSearch", "DespicableMe"
-]
+DEFAULT_TASKS = ["RestingState", "surroundSupp", "contrastChangeDetection",
+ "seqLearning8target", "symbolSearch", "DespicableMe"]
 
 
 def create_crl_pretraining_shards_EEGChallenge(

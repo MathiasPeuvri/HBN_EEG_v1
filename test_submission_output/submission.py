@@ -20,8 +20,8 @@ from pathlib import Path
 # ============================================================================
 # Model checkpoint filenames (must be in the zip)
 CRL_ENCODER_CHECKPOINT = "crl_encoder_best.pth"
-CHALLENGE_1_CHECKPOINT = "regressor_response_time_crl_frozen_best.pth"
-CHALLENGE_2_CHECKPOINT = "regressor_response_time_crl_frozen_best.pth"
+CHALLENGE_1_CHECKPOINT = "regressor_response_time_crl_best.pth"
+CHALLENGE_2_CHECKPOINT = "regressor_externalizing_crl_best.pth"
 
 # Architecture parameters (must match training config)
 N_CHANS = 129                # Number of EEG channels
@@ -246,29 +246,98 @@ class EEGContrastiveModel(nn.Module):
 # ============================================================================
 # REGRESSION HEAD
 # ============================================================================
-class CRLRegressionHead(nn.Module):
-    """Regression head for CRL encoder"""
+# class CRLRegressionHead(nn.Module):
+#     """Regression head for CRL encoder"""
 
-    def __init__(self, encoder, freeze_encoder=True, dropout=REGRESSOR_DROPOUT):
+#     def __init__(self, encoder, freeze_encoder=True, dropout=REGRESSOR_DROPOUT):
+#         super().__init__()
+#         self.encoder = encoder
+
+#         if freeze_encoder:
+#             for param in encoder.parameters():
+#                 param.requires_grad = False
+
+#         # Use Projector in regression mode
+#         self.projector = Projector(
+#             input_dim=4,
+#             output_dim=1,
+#             task_mode='regression'
+#         )
+
+#     def forward(self, x):
+#         """
+#         x: (batch, channels, time) -> (batch, 1)
+
+#         NOTE FOR CHALLENGE 2 (400 samplepoints):
+#         If using 400-sample windows with an encoder trained on 200 samples,
+#         consider implementing dual-window inference:
+#         - pred_first = forward(x[:, :, :200])
+#         - pred_last = forward(x[:, :, -200:])
+#         - output = (pred_first + pred_last) / 2
+
+#         See src/ML_pipeline_test/regression.py CRLRegressionHead for implementation.
+#         """
+#         features = self.encoder(x)  # (batch, 4, time_reduced)
+#         output = self.projector(features)  # (batch,)
+#         return output.unsqueeze(-1)  # (batch, 1) for compatibility
+
+class CRLRegressionHead(nn.Module):
+    """Regression head for CRL encoder (uses bi-LSTM Projector in regression mode)"""
+    def __init__(self, encoder, freeze_encoder=True, dropout=REGRESSOR_DROPOUT,
+                 window_size=200, use_dual_window=True):
         super().__init__()
         self.encoder = encoder
+        self.window_size = window_size  # Window size encoder was trained on (200)
+        self.use_dual_window = use_dual_window  # Enable dual-window inference for longer sequences
 
         if freeze_encoder:
             for param in encoder.parameters():
                 param.requires_grad = False
 
-        # Use Projector in regression mode
+        # Import Projector and use it in regression mode
+        #from .contrastive_learning.models import Projector
         self.projector = Projector(
-            input_dim=4,
-            output_dim=1,
-            task_mode='regression'
-        )
+            input_dim=4,  # CRL encoder outputs 4 channels
+            output_dim=1,  # Scalar output for regression
+            task_mode='regression')
 
     def forward(self, x):
-        """x: (batch, channels, time) -> (batch, 1)"""
-        features = self.encoder(x)  # (batch, 4, time_reduced)
-        output = self.projector(features)  # (batch,)
-        return output.unsqueeze(-1)  # (batch, 1) for compatibility
+        """
+        Forward pass with optional dual-window inference for sequences > window_size.
+
+        For sequences longer than window_size (e.g., 400 samplepoints for Challenge 2):
+        - Extract first 200 samplepoints and predict
+        - Extract last 200 samplepoints and predict
+        - Average the two predictions
+        """
+        batch_size, n_channels, seq_len = x.shape
+
+        # Standard forward for sequences matching encoder's trained window size
+        if seq_len == self.window_size or not self.use_dual_window:
+            features = self.encoder(x)  # (batch, 4, time_reduced)
+            output = self.projector(features)  # (batch,) - squeeze done in Projector
+            # return output
+            return output.unsqueeze(-1) # (batch, 1) for compatibility
+
+        # Dual-window inference for longer sequences
+        if seq_len > self.window_size:
+            # First window: first 200 timepoints
+            x_first = x[:, :, :self.window_size]  # (batch, channels, 200)
+            features_first = self.encoder(x_first)
+            pred_first = self.projector(features_first)  # (batch,)
+
+            # Second window: last 200 timepoints
+            x_last = x[:, :, -self.window_size:]  # (batch, channels, 200)
+            features_last = self.encoder(x_last)
+            pred_last = self.projector(features_last)  # (batch,)
+
+            # Average predictions from both windows
+            output = (pred_first + pred_last) / 2.0
+            # return output
+            return output.unsqueeze(-1) # (batch, 1) for compatibility
+
+        else:
+            raise ValueError(f"Sequence length ({seq_len}) is smaller than window_size ({self.window_size})")
 
 
 # ============================================================================

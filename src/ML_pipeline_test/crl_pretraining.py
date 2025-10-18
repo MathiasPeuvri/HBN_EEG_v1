@@ -30,13 +30,9 @@ import torch
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.ML_pipeline_test.contrastive_learning import (
-    EEGContrastiveModel,
-    pretrain_contrastive,
-    CRL_CONFIG
-)
+    EEGContrastiveModel, pretrain_contrastive, CRL_CONFIG)
 from src.ML_pipeline_test.datasets_loader_classes.shard_crl_dataset import (
-    ContrastiveShardDataset
-)
+    ContrastiveShardDataset)
 from src.ML_pipeline_test import config as ml_config
 
 
@@ -45,145 +41,80 @@ def main():
         description="Pretrain EEG encoder using Contrastive Representation Learning (CRL)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  # Train with default parameters (200 epochs, batch 256)
-  python crl_pretraining.py
+        Examples:
+        # Train with default parameters (200 epochs, batch 256)
+        python crl_pretraining.py
 
-  # Custom training configuration
-  python crl_pretraining.py --epochs 300 --batch-size 128 --lr 1e-3
+        # Custom training configuration
+        python crl_pretraining.py --epochs 300 --batch-size 128 --lr 1e-3
 
-  # Enable early stopping
-  python crl_pretraining.py --early-stopping 20
+        # Enable early stopping
+        python crl_pretraining.py --early-stopping 20
 
-  # Resume from checkpoint
-  python crl_pretraining.py --resume saved_models/crl_encoder_last.pth
-
-Note:
-  Make sure to create CRL pretraining shards first using:
-    python src/database_to_dataset/database_to_crl_pretraining_shards.py --verbose
+        # Resume from checkpoint
+        python crl_pretraining.py --resume saved_models/crl_encoder_last.pth
         """
     )
 
     # Data arguments
-    parser.add_argument(
-        "--data-pattern",
-        type=str,
+    parser.add_argument("--data-pattern", type=str,
         default=str(ml_config.DATA_DIR / "crl_pretraining_data_shard_*.pkl"),
-        help="Glob pattern for CRL shard files"
-    )
-    parser.add_argument(
-        "--train-split",
-        type=float,
-        default=0.8,
-        help="Train/val split ratio (default: 0.8)"
-    )
+        help="Glob pattern for CRL shard files")
+
+    parser.add_argument("--train-split", type=float, default=0.8,
+        help="Train/val split ratio (default: 0.8)")
 
     # Model arguments
-    parser.add_argument(
-        "--in-channels",
-        type=int,
-        default=CRL_CONFIG['n_chans'],
-        help=f"Number of input channels (default: {CRL_CONFIG['n_chans']})"
-    )
-    parser.add_argument(
-        "--n-samples",
-        type=int,
-        default=CRL_CONFIG['samplepoints'],
-        help=f"Number of time samples (default: {CRL_CONFIG['samplepoints']})"
-    )
-    parser.add_argument(
-        "--output-dim",
-        type=int,
-        default=CRL_CONFIG['projector_output_dim'],
-        help=f"Projection dimension (default: {CRL_CONFIG['projector_output_dim']})"
-    )
+    parser.add_argument("--in-channels", type=int, default=CRL_CONFIG['n_chans'],
+        help=f"Number of input channels (default: {CRL_CONFIG['n_chans']})")
+
+    parser.add_argument("--n-samples", type=int, default=CRL_CONFIG['samplepoints'],
+        help=f"Number of time samples (default: {CRL_CONFIG['samplepoints']})")
+
+    parser.add_argument("--output-dim", type=int, default=CRL_CONFIG['projector_output_dim'],
+        help=f"Projection dimension (default: {CRL_CONFIG['projector_output_dim']})")
 
     # Training arguments
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=CRL_CONFIG['epochs'],
-        help=f"Number of training epochs (default: {CRL_CONFIG['epochs']})"
-    )
-    parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=CRL_CONFIG['batch_size'],
-        help=f"Batch size (default: {CRL_CONFIG['batch_size']})"
-    )
-    parser.add_argument(
-        "--lr",
-        type=float,
-        default=CRL_CONFIG['learning_rate'],
-        help=f"Learning rate (default: {CRL_CONFIG['learning_rate']})"
-    )
-    parser.add_argument(
-        "--weight-decay",
-        type=float,
-        default=CRL_CONFIG['weight_decay'],
-        help=f"Weight decay (default: {CRL_CONFIG['weight_decay']})"
-    )
-    parser.add_argument(
-        "--warmup-epochs",
-        type=int,
-        default=CRL_CONFIG['warmup_epochs'],
-        help=f"Warmup epochs (default: {CRL_CONFIG['warmup_epochs']})"
-    )
-    parser.add_argument(
-        "--min-lr",
-        type=float,
-        default=CRL_CONFIG['min_lr'],
-        help=f"Minimum LR for cosine annealing (default: {CRL_CONFIG['min_lr']})"
-    )
-    parser.add_argument(
-        "--grad-clip",
-        type=float,
-        default=CRL_CONFIG['grad_clip'],
-        help=f"Gradient clipping max norm (default: {CRL_CONFIG['grad_clip']})"
-    )
+    parser.add_argument("--epochs", type=int, default=CRL_CONFIG['epochs'],
+        help=f"Number of training epochs (default: {CRL_CONFIG['epochs']})")
+        
+    parser.add_argument("--batch-size", type=int, default=CRL_CONFIG['batch_size'],
+        help=f"Batch size (default: {CRL_CONFIG['batch_size']})")
+
+    parser.add_argument("--lr", type=float, default=CRL_CONFIG['learning_rate'],
+        help=f"Learning rate (default: {CRL_CONFIG['learning_rate']})")
+
+    parser.add_argument("--weight-decay", type=float, default=CRL_CONFIG['weight_decay'],
+        help=f"Weight decay (default: {CRL_CONFIG['weight_decay']})")
+
+    parser.add_argument("--warmup-epochs", type=int, default=CRL_CONFIG['warmup_epochs'],
+        help=f"Warmup epochs (default: {CRL_CONFIG['warmup_epochs']})")
+
+    parser.add_argument("--min-lr", type=float, default=CRL_CONFIG['min_lr'],
+        help=f"Minimum LR for cosine annealing (default: {CRL_CONFIG['min_lr']})")
+
+    parser.add_argument("--grad-clip", type=float, default=CRL_CONFIG['grad_clip'],
+        help=f"Gradient clipping max norm (default: {CRL_CONFIG['grad_clip']})")
 
     # Regularization arguments
-    parser.add_argument(
-        "--early-stopping",
-        type=int,
-        default=None,
-        help="Early stopping patience (default: None = disabled)"
-    )
+    parser.add_argument("--early-stopping", type=int, default=None,
+        help="Early stopping patience (default: None = disabled)")
 
     # System arguments
-    parser.add_argument(
-        "--device",
-        type=str,
-        default='cuda' if torch.cuda.is_available() else 'cpu',
-        choices=['cuda', 'cpu'],
-        help="Device to train on"
-    )
-    parser.add_argument(
-        "--checkpoint-dir",
-        type=str,
-        default=str(ml_config.MODEL_DIR),
-        help=f"Checkpoint directory (default: {ml_config.MODEL_DIR})"
-    )
-    parser.add_argument(
-        "--save-prefix",
-        type=str,
-        default="crl_encoder",
-        help="Checkpoint filename prefix (default: crl_encoder)"
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Random seed (default: 42)"
-    )
+    parser.add_argument("--device", type=str, default='cuda' if torch.cuda.is_available() else 'cpu',
+        choices=['cuda', 'cpu'], help="Device to train on")
+
+    parser.add_argument("--checkpoint-dir", type=str, default=str(ml_config.MODEL_DIR),
+        help=f"Checkpoint directory (default: {ml_config.MODEL_DIR})")
+
+    parser.add_argument("--save-prefix", type=str, default="crl_encoder",
+        help="Checkpoint filename prefix (default: crl_encoder)")
+
+    parser.add_argument("--seed", type=int, default=42, help="Random seed (default: 42)")
 
     # Resume training
-    parser.add_argument(
-        "--resume",
-        type=str,
-        default=None,
-        help="Path to checkpoint to resume from"
-    )
+    parser.add_argument("--resume", type=str, default=None,
+        help="Path to checkpoint to resume from")
 
     args = parser.parse_args()
 
@@ -224,7 +155,7 @@ Note:
             seed=args.seed
         )
     except ValueError as e:
-        print(f"\n❌ Error: {e}")
+        print(f"\nError: {e}")
         print("\nMake sure to create CRL shards first:")
         print("  python src/database_to_dataset/database_to_crl_pretraining_shards.py --verbose\n")
         sys.exit(1)
@@ -277,10 +208,6 @@ Note:
     print(f"  Total epochs:      {len(history['train_loss'])}")
     print("="*70 + "\n")
 
-    print("✓ Training complete!")
-    print(f"\nEncoder can now be used for downstream tasks:")
-    print(f"  python regression.py --encoder_type crl --target response_time")
-    print()
 
 
 if __name__ == "__main__":

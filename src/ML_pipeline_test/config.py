@@ -39,27 +39,27 @@ if not glob.glob(PRETRAINING_DATA_PATTERN):
 PRETRAINING_DATA_PATH = PRETRAINING_DATA_PATTERN
 
 # Downstream data paths - support sharding
-DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "challenge1_data_shard_*.pkl") # This is used for challenge 1 response time
-DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "eval/R*.pkl")
-DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "challenge2_data_shard_*_R*.pkl")
+DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "challenge2_data_shard_*.pkl") # This is used for challenge 1 response time
+DOWNSTREAM_CHALL1_PATTERN = str(DATA_DIR / "chall1/R*.pkl")
+DOWNSTREAM_CHALL1_CLICKCENTERED_PATTERN = str(DATA_DIR / "chall1_clickcentered/R*_clickcentered.pkl")
 #DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "posttraining_data_shard_*.pkl") # I think this is used for dataset created according to any behavioral task
 #DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "pretraining_data_shard_*.pkl") # I think this is what we actually want for challenge 2
 # Fallback to single file if no shards found
-if not glob.glob(DOWNSTREAM_DATA_PATTERN):
-    # Try generic downstream pattern
-    DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "downstream_data_shard_*.pkl")
-    if not glob.glob(DOWNSTREAM_DATA_PATTERN):
-        DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "challenge_1_data*.pkl")
-    if not glob.glob(DOWNSTREAM_DATA_PATTERN):
-        # Fallback to single file if no patterns match
-        legacy_file = DATA_DIR / "challenge_1_data.pkl"
-        if legacy_file.exists():
-            DOWNSTREAM_DATA_PATTERN = str(legacy_file)
-        else:
-            # Try posttraining_data.pkl as fallback
-            legacy_posttraining = DATA_DIR / "posttraining_data.pkl"
-            if legacy_posttraining.exists():
-                DOWNSTREAM_DATA_PATTERN = str(legacy_posttraining)
+# if not glob.glob(DOWNSTREAM_DATA_PATTERN):
+#     # Try generic downstream pattern
+#     DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "downstream_data_shard_*.pkl")
+#     if not glob.glob(DOWNSTREAM_DATA_PATTERN):
+#         DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "challenge_1_data*.pkl")
+#     if not glob.glob(DOWNSTREAM_DATA_PATTERN):
+#         # Fallback to single file if no patterns match
+#         legacy_file = DATA_DIR / "challenge_1_data.pkl"
+#         if legacy_file.exists():
+#             DOWNSTREAM_DATA_PATTERN = str(legacy_file)
+#         else:
+#             # Try posttraining_data.pkl as fallback
+#             legacy_posttraining = DATA_DIR / "posttraining_data.pkl"
+#             if legacy_posttraining.exists():
+#                 DOWNSTREAM_DATA_PATTERN = str(legacy_posttraining)
 
 # For backward compatibility, keep old name as alias
 DOWNSTREAM_DATA_PATH = DOWNSTREAM_DATA_PATTERN

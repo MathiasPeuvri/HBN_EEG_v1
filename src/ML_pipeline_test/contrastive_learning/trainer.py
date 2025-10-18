@@ -172,11 +172,8 @@ def pretrain_contrastive(
         epoch_grad_norm = 0.0
         num_batches = 0
 
-        train_pbar = tqdm(
-            train_loader,
-            desc=f"Epoch {epoch+1}/{epochs} [Train]",
-            leave=False
-        )
+        train_pbar = tqdm(train_loader,
+            desc=f"Epoch {epoch+1}/{epochs} [Train]", leave=False)
 
         for batch_idx, (view1, view2) in enumerate(train_pbar):
             view1 = view1.to(device, non_blocking=True)
