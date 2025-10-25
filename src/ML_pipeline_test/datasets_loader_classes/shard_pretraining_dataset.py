@@ -48,37 +48,32 @@ class SequentialShardDataset(IterableDataset):
         return int(hashlib.md5(filename.encode()).hexdigest(), 16)
     
     def _split_shards(self):
-        """Split shards into train/val sets deterministically"""
-        train_shards = []
-        val_shards = []
-        
-        for shard_file in self.shard_files:
-            # Use stable hash for consistent splitting
-            shard_hash = self._get_stable_hash(shard_file)
-            if (shard_hash % 100) < (self.train_split * 100):
-                train_shards.append(shard_file)
-            else:
-                val_shards.append(shard_file)
-        
+        """Split shards into train/val sets based on R2 naming convention"""
+        # R2 files go to validation, others to train
+        train_shards = [f for f in self.shard_files if 'R2' not in f]
+        val_shards = [f for f in self.shard_files if 'R2' in f]
+
         self.active_shards = train_shards if self.is_train else val_shards
-        
+
         if not self.active_shards:
-            # If no val shards due to small dataset, use last shard
+            # If no val shards due to small dataset, use last shard as fallback
             if not self.is_train and self.shard_files:
                 self.active_shards = [self.shard_files[-1]]
-        
+                print("Warning: No R2 validation shards found, using last shard as fallback")
+
         print(f"{'Train' if self.is_train else 'Val'} dataset: "
-              f"{len(self.active_shards)} shards")
+              f"{len(self.active_shards)} shards "
+              f"(Train: {len(train_shards)}, Val: {len(val_shards)})")
     
     def __iter__(self) -> Iterator[torch.Tensor]:
         """Iterate through all shards sequentially"""
         # Create local random generator for this epoch
         rng = random.Random(self.seed)
-        
+
         # Shuffle shard order for this epoch
         shard_order = self.active_shards.copy()
         rng.shuffle(shard_order)
-        
+
         for shard_file in shard_order:
             # Load shard with context manager for memory cleanup
             with open(shard_file, 'rb') as f:

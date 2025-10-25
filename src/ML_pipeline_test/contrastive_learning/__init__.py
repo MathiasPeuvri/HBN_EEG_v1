@@ -19,8 +19,8 @@ Adapted for HBN dataset:
 from .config import CRL_CONFIG
 from .augmentations import apply_augmentations, transformation_ranges
 from .dataset import ContrastiveEEGDataset
-from .models import ConvolutionalEncoder, Projector, EEGContrastiveModel
-from .loss import NTXentLoss
+from .CRL_model import ConvolutionalEncoder, Projector, EEGContrastiveModel
+from .NTXent_loss import NTXentLoss
 from .trainer import pretrain_contrastive
 
 __all__ = [

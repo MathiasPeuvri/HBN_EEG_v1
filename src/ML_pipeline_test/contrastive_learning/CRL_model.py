@@ -183,12 +183,8 @@ class Projector(nn.Module):
 
     def downsample(self, x: torch.Tensor, factor: int = 2) -> torch.Tensor:
         """
-        Downsample temporal dimension by given factor.
-
         Args:
             x: Input tensor (batch, time, features)
-            factor: Downsampling factor
-
         Returns:
             Downsampled tensor (batch, time//factor, features)
         """

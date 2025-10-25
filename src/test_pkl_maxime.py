@@ -16,9 +16,9 @@ def convert_maximv2_format_with_window_augmentation(maxime_df, sampling_rate=100
         for i in range(len(row_maxime['winwdows'])):
             augmentations = [
                 ('challenge1_original', np.nan),
-                ('early', np.random.randint(20, 70)),
-                ('middle', np.random.randint(71, 130)),
-                ('late', np.random.randint(131, 185))]
+                ('early', np.random.randint(0, 60)),
+                ('middle', np.random.randint(61, 140)),
+                ('late', np.random.randint(141, 199))]
             
             full_sig = row_maxime['winwdows'][i]
             original_reaction_time = row_maxime['vals'][i][0]

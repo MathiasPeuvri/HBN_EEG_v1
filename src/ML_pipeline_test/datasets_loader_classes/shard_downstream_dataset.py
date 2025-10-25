@@ -157,15 +157,20 @@ class SequentialShardDownstreamDataset(IterableDataset):
         return psycho_factor_map
 
     def _split_shards(self):
-        """Split shards into train/val sets with random shuffle (deterministic via seed)"""
-        rng = random.Random(self.seed)
-        shuffled = sorted(self.shard_files)
-        rng.shuffle(shuffled)
-        n_train = max(1, int(len(shuffled) * self.train_split))
-        train_shards = shuffled[:n_train] or [shuffled[0]]
-        val_shards = shuffled[n_train:] or [shuffled[-1]]
+        """Split shards into train/val sets based on R2 naming convention"""
+        # R2 files go to validation, others to train
+        train_shards = [f for f in self.shard_files if 'R2' not in f]
+        val_shards = [f for f in self.shard_files if 'R2' in f]
+
         self.active_shards = train_shards if self.is_train else val_shards
-        print(f"{'Train' if self.is_train else 'Val'} downstream dataset: {len(self.active_shards)}/{len(shuffled)} shards")
+
+        if not self.active_shards:
+            raise ValueError(f"No {'train' if self.is_train else 'validation'} shards found. "
+                            f"Train shards: {len(train_shards)}, Val shards: {len(val_shards)}")
+
+        print(f"{'Train' if self.is_train else 'Val'} downstream dataset: "
+              f"{len(self.active_shards)}/{len(self.shard_files)} shards "
+              f"(Train: {len(train_shards)}, Val: {len(val_shards)})")
     
     def _build_global_label_map(self) -> Dict[Any, int]:
         """Build global label mapping by scanning all shards"""
@@ -211,7 +216,7 @@ class SequentialShardDownstreamDataset(IterableDataset):
         """Iterate through all shards sequentially, yielding (signal, label) pairs"""
         # Create local random generator for this epoch
         rng = random.Random(self.seed)
-        shard_order = self.active_shards.copy() 
+        shard_order = self.active_shards.copy()
         rng.shuffle(shard_order) # Shuffle shard order for this epoch
 
         for shard_file in shard_order:

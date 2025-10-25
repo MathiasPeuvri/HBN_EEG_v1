@@ -18,15 +18,18 @@ PROJECT_ROOT="/home/mts/HBN_EEG_v1"
     MODEL_DIR="${PROJECT_ROOT}/src/ML_pipeline_test/saved_models"
     DATABASE_DIR="${PROJECT_ROOT}/database"
 
+# python -m src.database_to_dataset.database_to_crl_pretraining_shards_EEGChallengeDataset --release R4 --cache-dir "$DATABASE_DIR
+# " --savepath-root "$DATA_DIR" --subjects-per-shard 5  --verbose
+
 # Dataset configuration
 RELEASES="${RELEASES:-R1}"                    # Space-separated list: "R1 R2 R5"
+VAL_DATA_PATTERN="${VAL_DATA_PATTERN:-${DATA_DIR}/crl_pretraining_data_shard_*2_R2.pkl}"
 # si releases est une liste, vérifie uniquement que les shards spécifiés existent; fait l'entrainement sur toutes les shards existante peut importe la release
 IFS=' ' read -ra RELEASE_ARRAY <<< "$RELEASES"
 
 # Training configuration - set defaults based on number of releases
 if [ -z "$PRETRAINING_EPOCHS" ]; then
-    # Only set default if not already specified by user
-    if [ ${#RELEASE_ARRAY[@]} -eq 1 ]; then
+    if [ ${#RELEASE_ARRAY[@]} -eq 1 ]; then # Only set default if not already specified by user
         PRETRAINING_EPOCHS=1  # Single release: more epochs
     else
         PRETRAINING_EPOCHS=1  # Multiple releases: quick test
@@ -42,7 +45,7 @@ SUBJECTS_PER_SHARD="${SUBJECTS_PER_SHARD:-5}"  # CRL pretraining: 5 subjects per
 
 # Enable/disable pipeline steps (comment out lines to skip steps)
 RUN_CREATE_CRL_SHARDS=true
-RUN_CRL_PRETRAINING=true
+RUN_CRL_PRETRAINING=False
 
 
 ################################################################################
@@ -160,6 +163,7 @@ if [ "$RUN_CRL_PRETRAINING" = true ]; then
         --epochs "$PRETRAINING_EPOCHS" \
         --batch-size "$PRETRAINING_BATCH" \
         --data-pattern "$DATA_PATTERN" \
+        --val-data-pattern "$VAL_DATA_PATTERN" \
         --save-prefix "crl_encoder_${RELEASES}"
 
     PHASE2_DURATION=$((SECONDS - PHASE2_START))

@@ -175,15 +175,12 @@ def create_challenge2_shards_EEGChallenge(
             })
 
         if verbose and len(subject_metadata) > 0:
-            ext_val = subject_metadata.iloc[0].get('externalizing', 'N/A')
-            print(f"[{subj_idx+1}/{len(subjects)}] {subject}: {len(subject_metadata)} windows "
-                  f"(externalizing={ext_val:.3f})" if isinstance(ext_val, (int, float))
-                  else f"[{subj_idx+1}/{len(subjects)}] {subject}: {len(subject_metadata)} windows")
+            print(f"[{subj_idx+1}/{len(subjects)}] {subject}: {len(subject_metadata)} windows ")
 
         # Save shard every nb_subjects_per_shard subjects
         if (subj_idx + 1) % nb_subjects_per_shard == 0 and challenge2_data:
             temp_df = pd.DataFrame(challenge2_data)
-            shard_path = savepath_root / f'challenge2_data_shard_{shard_counter}_{release}.pkl'
+            shard_path = savepath_root / f'chall2/challenge2_data_shard_{shard_counter}_{release}.pkl'
 
             with open(shard_path, 'wb') as f:
                 pickle.dump(temp_df, f)

@@ -15,20 +15,17 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from src.ML_pipeline_test.datasets_loader_classes.shard_crl_dataset import ContrastiveShardDataset
+
 from .NTXent_loss import NTXentLoss
 from .config import (
     CRL_CONFIG, EPOCHS, BATCH_SIZE, LEARNING_RATE, WEIGHT_DECAY,
     WARMUP_EPOCHS, GRAD_CLIP, MIN_LR, CHECKPOINT_DIR, NUM_WORKERS)
 
-from src.ML_pipeline_test import config as ml_config
-from src.ML_pipeline_test.custom_shards_repartition import custom_shards_repartition
 
 def pretrain_contrastive(
     model: nn.Module,
-    data_pattern: str,
-    val_data_pattern: str,
-    data_dir: ml_config.DATA_DIR,
+    train_dataset,
+    val_dataset=None,
     epochs: int = EPOCHS,
     batch_size: int = BATCH_SIZE,
     lr: float = LEARNING_RATE,
@@ -42,18 +39,48 @@ def pretrain_contrastive(
     random_seed: int = 42,
     save_prefix: str = "crl_encoder"
 ) -> tuple:
-    f"""
+    """
     Pretrain encoder using contrastive learning with NT-Xent loss.
-    Pretraining strategy from Mohsenvand et al. (2020) adapted for HBN dataset.
+
+    Implements pretraining strategy from Mohsenvand et al. (2020) adapted for HBN dataset:
     - Learning rate warmup (linear) + cosine annealing to min_lr
     - Gradient clipping to prevent exploding gradients in LSTM
     - Validation monitoring and checkpointing (best + last)
     - Optional early stopping based on validation loss plateau
 
+    Args:
+        model: EEGContrastiveModel instance (Encoder + Projector)
+        train_dataset: Training dataset (ContrastiveShardDataset or ContrastiveEEGDataset)
+        val_dataset: Validation dataset (optional but recommended)
+        epochs: Number of training epochs (default: 200)
+        batch_size: Batch size for training (default: 256)
+        lr: Peak learning rate (default: 3e-4)
+        weight_decay: L2 regularization (default: 1e-6)
+        device: Device to train on ('cuda' or 'cpu')
+        warmup_epochs: Linear LR warmup epochs (default: 10)
+        min_lr: Minimum LR for cosine annealing (default: 1e-6)
+        grad_clip: Max gradient norm for clipping (default: 1.0)
+        checkpoint_dir: Directory to save checkpoints
+        early_stopping_patience: Stop if val loss doesn't improve for N epochs (None = no early stopping)
+        random_seed: Random seed for reproducibility
+        save_prefix: Prefix for checkpoint filenames (default: "crl_encoder")
+
     Returns:
         model: Pretrained model
-        history:  {'train_loss', 'val_loss', 'grad_norms', 'learning_rates'}
+        history: Dictionary with training metrics:
+            - 'train_loss': List of average training losses per epoch
+            - 'val_loss': List of validation losses per epoch
+            - 'grad_norms': List of gradient norms per epoch
+            - 'learning_rates': List of learning rates per epoch
 
+    Example:
+        >>> from contrastive_learning import EEGContrastiveModel, pretrain_contrastive
+        >>> from datasets_loader_classes.shard_crl_dataset import ContrastiveShardDataset
+        >>>
+        >>> train_data = ContrastiveShardDataset("datasets/crl_pretraining_data_shard_*.pkl")
+        >>> val_data = ContrastiveShardDataset("datasets/crl_pretraining_data_shard_*.pkl", is_train=False)
+        >>> model = EEGContrastiveModel()
+        >>> model, history = pretrain_contrastive(model, train_data, val_data, epochs=200)
     """
     # Set random seeds for reproducibility
     torch.manual_seed(random_seed)
@@ -73,24 +100,13 @@ def pretrain_contrastive(
     # Setup data loaders
     # Note: For IterableDataset (shards), shuffle is not needed
     # num_workers=0 to avoid memory issues with augmentations in worker processes
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        num_workers=NUM_WORKERS, 
+        pin_memory=True if device.type == 'cuda' else False
+    )
 
-    # check if data_pattern is the custom_shards_repartition
-    n_shards_per_epoch = 5
-    print('Hardcoded : \nn_shards_per_epoch: ', n_shards_per_epoch) # hardcodé
-    if data_pattern == 'custom':
-        epoch_files_lists = custom_shards_repartition(data_dir, epochs, n_shards_per_epoch)
-    else: # else we can initialise train_dataset only once according to the pattern
-        train_dataset = ContrastiveShardDataset(shard_pattern=data_pattern, seed=random_seed)
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=batch_size,
-            num_workers=NUM_WORKERS, 
-            pin_memory=True if device.type == 'cuda' else False)
-
-    default_val_pattern = str(data_dir / "crl_pretraining_data_shard_*_R2.pkl")
-    if val_data_pattern is None:
-        val_data_pattern = default_val_pattern
-    val_dataset = ContrastiveShardDataset(shard_pattern=val_data_pattern, seed=random_seed)
     val_loader = None
     if val_dataset:
         val_loader = DataLoader(
@@ -107,8 +123,10 @@ def pretrain_contrastive(
     # Learning rate scheduler: warmup + cosine annealing
     def lr_lambda(current_epoch):
         if current_epoch < warmup_epochs:
-            return float(current_epoch + 1) / float(warmup_epochs) # Linear warmup: 0 → 1
-        else: # Cosine annealing: 1 → min_lr/lr
+            # Linear warmup: 0 → 1
+            return float(current_epoch + 1) / float(warmup_epochs)
+        else:
+            # Cosine annealing: 1 → min_lr/lr
             if epochs <= warmup_epochs:
                 return 1.0
             progress = float(current_epoch - warmup_epochs) / float(epochs - warmup_epochs)
@@ -119,7 +137,12 @@ def pretrain_contrastive(
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
     # Initialize tracking
-    history = {'train_loss': [], 'val_loss': [], 'grad_norms': [], 'learning_rates': []}
+    history = {
+        'train_loss': [],
+        'val_loss': [],
+        'grad_norms': [],
+        'learning_rates': []
+    }
 
     best_val_loss = float('inf')
     epochs_without_improvement = 0
@@ -142,13 +165,7 @@ def pretrain_contrastive(
     print(f"{'='*60}\n")
 
     # Training loop
-    for iepoch, epoch in enumerate(range(epochs)):
-        # load epoch training data: 
-        if data_pattern == 'custom':
-            print(f"Epoch {iepoch+1} training data: {epoch_files_lists[iepoch]}")
-            train_dataset = ContrastiveShardDataset(shard_pattern=epoch_files_lists[iepoch], seed=random_seed)
-            train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=NUM_WORKERS, 
-                        pin_memory=True if device.type == 'cuda' else False)
+    for epoch in range(epochs):
         # ========== TRAINING PHASE ==========
         model.train()
         epoch_loss = 0.0

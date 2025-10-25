@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from src.ML_pipeline_test import config
+from src.ML_pipeline_test.masking_strategy import create_and_apply_mask
 
 
 class CNN1DAutoencoder(nn.Module):
@@ -57,42 +58,26 @@ class CNN1DAutoencoder(nn.Module):
     
     def forward_masked(self, x, mask_ratio=config.MASK_RATIO):
         """Forward pass with random masking
-        
-                            If we move the create mask to another file, then we could discard the 
-                            forward_masked function and only use forward but instead of x being the original 
-                            data it would be the masked data.
+
+        Args:
+            x: Input tensor of shape (batch_size, channels, seq_len)
+            mask_ratio: Proportion of timepoints to mask
+
+        Returns:
+            tuple: (reconstruction, mask) where mask indicates True = keep, False = masked
         """
-        batch_size, channels, seq_len = x.shape
-        
-        # Create random mask for time segments
-        mask = self.create_mask(batch_size, seq_len, mask_ratio)
-        
-        # Apply mask (set masked positions to 0)
-        x_masked = x.clone()
-        for b in range(batch_size):
-            x_masked[b, :, ~mask[b]] = 0
-        
+        # Create and apply mask using external masking strategy
+        x_masked, mask = create_and_apply_mask(x, mask_ratio=mask_ratio)
+
         # Encode and decode
         z = self.encode(x_masked)
         reconstruction = self.decode(z)
-        
+
         # Ensure output matches input size
         if reconstruction.shape[-1] != x.shape[-1]:
             reconstruction = F.interpolate(reconstruction, size=x.shape[-1], mode='linear')
-        
+
         return reconstruction, mask
-    
-    def create_mask(self, batch_size, seq_len, mask_ratio=0.75):
-        """Create random binary mask for time segments // Should be moved to a different file later (and reworked, not just random!)"""
-        num_masked = int(seq_len * mask_ratio)
-        mask = torch.ones(batch_size, seq_len, dtype=torch.bool, device=config.DEVICE)
-        
-        for i in range(batch_size):
-            # Random indices to mask
-            masked_indices = torch.randperm(seq_len)[:num_masked]
-            mask[i, masked_indices] = False
-        
-        return mask
 
 
 class BinaryClassifier(nn.Module):

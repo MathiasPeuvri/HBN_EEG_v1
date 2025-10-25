@@ -123,7 +123,7 @@ if [ "$RUN_CREATE_CHALL2_SHARDS" = true ]; then
 
     if [ $? -eq 0 ]; then
         echo "✓ Challenge 2 shards created successfully"
-        echo "  Check: $DATA_DIR/challenge2_data_shard_*_${RELEASE}.pkl"
+        echo "  Check: $DATA_DIR/chall2/challenge2_data_shard_*_${RELEASE}.pkl"
     else
         echo "✗ Failed to create Challenge 2 shards"
         exit 1
@@ -242,7 +242,7 @@ if [ "$RUN_CHALL2_TRAINING" = true ]; then
         --target externalizing \
         --epochs "$DOWNSTREAM_EPOCHS" \
         --batch-size "$DOWNSTREAM_BATCH" \
-        --data-pattern "${DATA_DIR}/challenge2_data_shard_*_${RELEASE}.pkl"
+        --data-pattern "${DATA_DIR}/chall2/challenge2_data_shard_*_${RELEASE}.pkl"
 
     if [ $? -eq 0 ]; then
         echo "✓ Challenge 2 frozen encoder training completed"
@@ -259,7 +259,7 @@ if [ "$RUN_CHALL2_TRAINING" = true ]; then
         --unfreeze \
         --epochs "$DOWNSTREAM_EPOCHS" \
         --batch-size "$DOWNSTREAM_BATCH" \
-        --data-pattern "${DATA_DIR}/challenge2_data_shard_*_${RELEASE}.pkl"
+        --data-pattern "${DATA_DIR}/chall2/challenge2_data_shard_*_${RELEASE}.pkl"
 
     if [ $? -eq 0 ]; then
         echo "✓ Challenge 2 fine-tuning completed"

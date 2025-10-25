@@ -8,7 +8,7 @@ echo "CRL shards:"
 ls -1 datasets/crl_pretraining_data_shard*.pkl 2>/dev/null | head -3
 echo ""
 echo "Challenge 2 shards:"
-ls -1 datasets/challenge2_data_shard*.pkl 2>/dev/null | head -3
+ls -1 datasets/chall2/challenge2_data_shard*.pkl 2>/dev/null | head -3
 
 echo ""
 echo "=== Existing Models ==="

@@ -14,6 +14,7 @@ VERBOSE = False
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent 
 ML_DIR = PROJECT_ROOT / "src" / "ML_pipeline_test"
 DATA_DIR = PROJECT_ROOT / "datasets"
+#DATA_DIR = PROJECT_ROOT / "dataset_test"
 
 
 
@@ -36,10 +37,11 @@ if not glob.glob(PRETRAINING_DATA_PATTERN):
                 PRETRAINING_DATA_PATTERN = str(legacy_batch)
 
 # For backward compatibility, keep old name as alias
+PRETRAINING_DATA_PATTERN = str(DATA_DIR / "crl_pretraining_data_shard_*.pkl")
 PRETRAINING_DATA_PATH = PRETRAINING_DATA_PATTERN
 
 # Downstream data paths - support sharding
-DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "challenge2_data_shard_*.pkl") # This is used for challenge 1 response time
+DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "chall2/challenge2_data_shard_*.pkl") # This is used for challenge 1 response time
 DOWNSTREAM_CHALL1_PATTERN = str(DATA_DIR / "chall1/R*.pkl")
 DOWNSTREAM_CHALL1_CLICKCENTERED_PATTERN = str(DATA_DIR / "chall1_clickcentered/R*_clickcentered.pkl")
 #DOWNSTREAM_DATA_PATTERN = str(DATA_DIR / "posttraining_data_shard_*.pkl") # I think this is used for dataset created according to any behavioral task
@@ -144,15 +146,15 @@ POSTTRAINING_SEQ_LEN = 200  # Standard window size (2s @ 100Hz)
 CHALLENGE2_SEQ_LEN = 400     # Challenge 2 window size (4s @ 100Hz)
 
 # Training configuration
-TRAIN_SPLIT = 0.8
+TRAIN_SPLIT = 0.9
 RANDOM_SEED = 42
 
 # Autoencoder configuration
 AE_BATCH_SIZE = 32
 AE_EPOCHS = 100
-AE_LEARNING_RATE = 1e-3
+AE_LEARNING_RATE = 1e-5
 AE_WEIGHT_DECAY = 1e-5
-MASK_RATIO = 0.5
+MASK_RATIO = 0.25
 
 # Model architecture
 CONV1_OUT_CHANNELS = 64
@@ -163,7 +165,7 @@ KERNEL_SIZE = 5
 # Classifier configuration
 CLS_BATCH_SIZE = 16
 CLS_EPOCHS = 50
-CLS_LEARNING_RATE = 1e-3
+CLS_LEARNING_RATE = 1e-5
 CLS_WEIGHT_DECAY = 1e-5
 CLS_DROPOUT = 0.3
 

@@ -19,8 +19,9 @@ from pathlib import Path
 # CONFIGURATION - ADAPT THIS FOR EACH SUBMISSION
 # ============================================================================
 # Model checkpoint filenames (must be in the zip)
-CRL_ENCODER_CHECKPOINT = "crl_encoder_best.pth"
-CHALLENGE_1_CHECKPOINT = "regressor_response_time_crl_best.pth"
+CRL_ENCODER_CHECKPOINT = "crl_encoder_V1_best.pth"
+#CHALLENGE_1_CHECKPOINT = "regressor_response_time_crl_best.pth"
+CHALLENGE_1_CHECKPOINT = "regressor_rt_idx_crl_best.pth"
 CHALLENGE_2_CHECKPOINT = "regressor_externalizing_crl_best.pth"
 
 # Architecture parameters (must match training config)
@@ -284,18 +285,19 @@ class EEGContrastiveModel(nn.Module):
 class CRLRegressionHead(nn.Module):
     """Regression head for CRL encoder (uses bi-LSTM Projector in regression mode)"""
     def __init__(self, encoder, freeze_encoder=True, dropout=REGRESSOR_DROPOUT,
-                 window_size=200, use_dual_window=True):
+                 window_size=200, use_dual_window=True, convert_to_seconds=False):
         super().__init__()
         self.encoder = encoder
         self.window_size = window_size  # Window size encoder was trained on (200)
         self.use_dual_window = use_dual_window  # Enable dual-window inference for longer sequences
+        self.convert_to_seconds = convert_to_seconds  # Convert rt_idx to seconds (Challenge 1 only)
 
         if freeze_encoder:
             for param in encoder.parameters():
                 param.requires_grad = False
 
         # Import Projector and use it in regression mode
-        #from .contrastive_learning.models import Projector
+        #from .contrastive_learning.CRL_model import Projector
         self.projector = Projector(
             input_dim=4,  # CRL encoder outputs 4 channels
             output_dim=1,  # Scalar output for regression
@@ -316,8 +318,10 @@ class CRLRegressionHead(nn.Module):
         if seq_len == self.window_size or not self.use_dual_window:
             features = self.encoder(x)  # (batch, 4, time_reduced)
             output = self.projector(features)  # (batch,) - squeeze done in Projector
-            # return output
-            return output.unsqueeze(-1) # (batch, 1) for compatibility
+            output = output.unsqueeze(-1) # (batch, 1) for compatibility
+            if self.convert_to_seconds: # Convert rt_idx to seconds (Challenge 1 rt_idx -> rt_seconds)
+                output = (output / 100.0) + 0.5  # samplepoint to seconds + 0.5sec baseline
+            return output
 
         # Dual-window inference for longer sequences
         if seq_len > self.window_size:
@@ -333,9 +337,8 @@ class CRLRegressionHead(nn.Module):
 
             # Average predictions from both windows
             output = (pred_first + pred_last) / 2.0
-            # return output
-            return output.unsqueeze(-1) # (batch, 1) for compatibility
 
+            return output.unsqueeze(-1) # (batch, 1) for compatibility
         else:
             raise ValueError(f"Sequence length ({seq_len}) is smaller than window_size ({self.window_size})")
 
@@ -372,7 +375,8 @@ class Submission:
         model = CRLRegressionHead(
             encoder=encoder,
             freeze_encoder=True,
-            dropout=REGRESSOR_DROPOUT
+            dropout=REGRESSOR_DROPOUT,
+            convert_to_seconds=True  # Challenge 1: Convert rt_idx to seconds
         ).to(self.device)
 
         # Load regression head weights

@@ -13,7 +13,7 @@ from .datasets_loader_classes.shard_pretraining_dataset import SequentialShardDa
 from .datasets_loader_classes.downstream_dataset import DownstreamTaskDataset
 from .datasets_loader_classes.shard_downstream_dataset import SequentialShardDownstreamDataset
 
-NUM_WORKERS = 2
+NUM_WORKERS = 4
 
 def create_dataloaders(dataset_type: str = 'pretraining',
                        batch_size: Optional[int] = None,
@@ -134,8 +134,6 @@ def create_dataloaders(dataset_type: str = 'pretraining',
     elif dataset_type == 'regression':
         # Check if we have multiple shards or single file
         pattern = config.DOWNSTREAM_DATA_PATTERN
-        # from pattern to train / val pattern:
-        all_patterns = glob.glob(pattern)
 
         if '*' in pattern and len(glob.glob(pattern)) > 1:
             # Multiple shards - use SequentialShardDownstreamDataset

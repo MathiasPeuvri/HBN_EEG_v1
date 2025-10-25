@@ -19,9 +19,8 @@ from pathlib import Path
 # CONFIGURATION - ADAPT THIS FOR EACH SUBMISSION
 # ============================================================================
 # Model checkpoint filenames (must be in the zip)
-CRL_ENCODER_CHECKPOINT = "crl_encoder_V1_best.pth"
-#CHALLENGE_1_CHECKPOINT = "regressor_response_time_crl_best.pth"
-CHALLENGE_1_CHECKPOINT = "regressor_rt_idx_crl_best.pth"
+CRL_ENCODER_CHECKPOINT = "crl_encoder_best.pth"
+CHALLENGE_1_CHECKPOINT = "regressor_response_time_crl_best.pth"
 CHALLENGE_2_CHECKPOINT = "regressor_externalizing_crl_best.pth"
 
 # Architecture parameters (must match training config)

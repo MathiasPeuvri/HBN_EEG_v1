@@ -96,6 +96,7 @@ logs/
 
 # Machine learning model files (if any)
 *.pkl
+*.pickle
 *.joblib
 *.h5
 *.hdf5

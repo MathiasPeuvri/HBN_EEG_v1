@@ -16,7 +16,6 @@ RT Samplepoint Localization - Regression pipeline
 
 Task: Predict rt_idx (position 0-200 of reaction time within 2sec window)
 Input: EEG windows (2 sec, 200 samplepoints) with augmentation from 4sec centered data
-Target: rt_idx ∈ [20, 180] - relative position of reaction within window
 
 Key differences from regression.py:
 1. Target: 'rt_idx' instead of 'response_time'
@@ -24,22 +23,12 @@ Key differences from regression.py:
 3. Data format: 'v2_windowed' with window augmentation
 4. Shard pattern: clickcentered.pkl files
 
-Supports two encoder types:
-- 'autoencoder': Original masked autoencoder pretraining
-- 'crl': Contrastive Representation Learning pretraining
 """
 
 
 def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DAutoencoder):
     """
     Load pretrained encoder (either autoencoder or CRL).
-
-    Args:
-        encoder_type: Type of encoder ('autoencoder' or 'crl')
-        autoencoder_class: Autoencoder class (only used if encoder_type='autoencoder')
-
-    Returns:
-        encoder: Pretrained encoder module or None if loading fails
     """
     if encoder_type == 'autoencoder':
         # Load masked autoencoder encoder
@@ -57,7 +46,7 @@ def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DA
         # Load CRL encoder
         try:
             from .contrastive_learning import EEGContrastiveModel
-            crl_checkpoint_path = config.MODEL_DIR / "crl_encoder_best.pth"
+            crl_checkpoint_path = config.MODEL_DIR / "crl_encoder_V1_best.pth"
             if not crl_checkpoint_path.exists():
                 raise FileNotFoundError(f"No CRL checkpoint found at {config.MODEL_DIR}")
 
@@ -134,7 +123,7 @@ class CRLRegressionHead(nn.Module):
                 param.requires_grad = False
 
         # Import Projector and use it in regression mode
-        from .contrastive_learning.models import Projector
+        from .contrastive_learning.CRL_model import Projector
         self.projector = Projector(
             input_dim=4,  # CRL encoder outputs 4 channels
             output_dim=1,  # Scalar output for regression

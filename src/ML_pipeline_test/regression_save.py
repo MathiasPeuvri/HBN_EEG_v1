@@ -10,7 +10,6 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from . import config
 from .data_loader_ml import create_dataloaders
 from .models import CNN1DAutoencoder, BinaryClassifier
-from . import progressive_unfreezing as puf
 
 def load_pretrained_encoder(encoder_type='autoencoder', autoencoder_class=CNN1DAutoencoder):
     """
@@ -239,8 +238,7 @@ def train_regressor(encoder_type='autoencoder',
                    dataset_type='regression',
                    epochs=config.CLS_EPOCHS,
                    batch_size=config.CLS_BATCH_SIZE,
-                   freeze_encoder=True,
-                   progressive_unfreeze=False):
+                   freeze_encoder=True):
     """
     Main training function for regressor.
 
@@ -251,8 +249,7 @@ def train_regressor(encoder_type='autoencoder',
         dataset_type: Dataset type ('regression')
         epochs: Number of training epochs
         batch_size: Batch size
-        freeze_encoder: Whether to freeze encoder weights initially
-        progressive_unfreeze: Enable progressive unfreezing strategy (uses config from progressive_unfreezing.py)
+        freeze_encoder: Whether to freeze encoder weights
 
     Returns:
         model: Trained regression model
@@ -282,12 +279,6 @@ def train_regressor(encoder_type='autoencoder',
     # Load pretrained encoder
     encoder = load_pretrained_encoder(encoder_type=encoder_type, autoencoder_class=autoencoder_class)
 
-    # Progressive unfreezing overrides freeze_encoder flag
-    if progressive_unfreeze:
-        freeze_encoder = True  # Start frozen
-        unfreeze_schedule = puf.get_unfreeze_schedule()
-        puf.print_unfreezing_plan(unfreeze_schedule, frozen_epochs=puf.FROZEN_EPOCHS)
-
     # Regression head based on encoder type
     if encoder_type == 'crl':
         model = CRLRegressionHead(encoder=encoder, freeze_encoder=freeze_encoder).to(config.DEVICE)
@@ -296,7 +287,7 @@ def train_regressor(encoder_type='autoencoder',
     # Count trainable parameters
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Encoder frozen: {freeze_encoder} --> Trainable parameters: {trainable_params:,}")
-
+    
     # Initialize optimizer and criterion
     optimizer = optim.Adam(
         filter(lambda p: p.requires_grad, model.parameters()),
@@ -314,28 +305,6 @@ def train_regressor(encoder_type='autoencoder',
     train_r2s, val_r2s = [], []
     
     for epoch in range(epochs):
-        # Progressive unfreezing logic
-        if progressive_unfreeze and epoch in unfreeze_schedule:
-            print(f"\n{'='*60}")
-            print(f"Epoch {epoch+1}: Progressive Unfreezing Triggered")
-            print(f"{'='*60}")
-
-            # Unfreeze layers according to schedule
-            layers_to_unfreeze = unfreeze_schedule[epoch]
-            puf.unfreeze_encoder_layers(model, layers_to_unfreeze, verbose=True)
-
-            # Recreate optimizer with differential learning rates
-            optimizer = puf.setup_progressive_optimizer(
-                model=model,
-                base_lr=config.CLS_LEARNING_RATE,
-                weight_decay=config.CLS_WEIGHT_DECAY
-            )
-
-            # Reset scheduler for new optimizer
-            scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, mode='min', factor=0.5, patience=5)
-            print(f"{'='*60}\n")
-
         # Train
         train_loss, train_mae, train_rmse, train_r2 = regression_train_epoch(
             model, train_loader, optimizer, criterion, epoch, epochs_n=epochs)
@@ -343,14 +312,14 @@ def train_regressor(encoder_type='autoencoder',
         train_maes.append(train_mae)
         train_rmses.append(train_rmse)
         train_r2s.append(train_r2)
-
+        
         # Validate
         val_loss, val_mae, val_rmse, val_r2 = validate_regression(model, val_loader, criterion)
         val_losses.append(val_loss)
         val_maes.append(val_mae)
         val_rmses.append(val_rmse)
         val_r2s.append(val_r2)
-
+        
         # Update learning rate
         scheduler.step(val_mae)
         
@@ -403,11 +372,8 @@ Examples:
   # Train with CRL encoder
   python regression.py --encoder_type crl --target response_time
 
-  # Fine-tune encoder (full unfreezing)
+  # Fine-tune encoder
   python regression.py --encoder_type crl --target response_time --unfreeze
-
-  # Progressive unfreezing (recommended for CRL)
-  python regression.py --encoder_type crl --target response_time --progressive-unfreeze --epochs 20
         """
     )
     parser.add_argument('--encoder_type', type=str, default='autoencoder',
@@ -419,8 +385,6 @@ Examples:
                        help='Batch size for training')
     parser.add_argument('--unfreeze', action='store_true',
                        help='Unfreeze encoder for fine-tuning')
-    parser.add_argument('--progressive-unfreeze', action='store_true',
-                       help='Enable progressive unfreezing strategy (config in progressive_unfreezing.py)')
     parser.add_argument('--target', type=str, default=config.TARGET_COLUMN,
                        help='Target column to predict')
     args = parser.parse_args()
@@ -433,7 +397,6 @@ Examples:
         epochs=args.epochs,
         batch_size=args.batch_size,
         freeze_encoder=not args.unfreeze,
-        progressive_unfreeze=args.progressive_unfreeze,
         target_column=args.target)
     
     # Print final statistics
